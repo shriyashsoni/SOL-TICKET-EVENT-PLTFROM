@@ -54,11 +54,7 @@ export default function ConnectWalletPage() {
               <div className="flex gap-4">
                 <div className="flex-1 p-4 rounded-lg bg-background border-2 border-accent">
                   <p className="font-medium text-foreground">Testnet</p>
-                  <p className="text-sm text-muted-foreground">Testing Network</p>
-                </div>
-                <div className="flex-1 p-4 rounded-lg bg-background border border-border">
-                  <p className="font-medium text-foreground">Mainnet</p>
-                  <p className="text-sm text-muted-foreground">Production Network</p>
+                  <p className="text-sm text-muted-foreground">Only network enabled</p>
                 </div>
               </div>
             </div>
@@ -88,7 +84,7 @@ export default function ConnectWalletPage() {
                     </li>
                     <li className="flex items-center gap-3">
                       <Shield className="w-5 h-5 text-accent" />
-                      <span className="text-foreground">Support for Testnet & Mainnet</span>
+                      <span className="text-foreground">Support for Testnet</span>
                     </li>
                   </ul>
                 </div>

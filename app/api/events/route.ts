@@ -6,6 +6,31 @@ const POST_EVENT_FEE_LAMPORTS = 100_000;
 const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
 const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
 
+const VERIFY_RETRIES = 8;
+const VERIFY_RETRY_DELAY_MS = 500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toBase58Like(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value && 'toBase58' in value && typeof (value as { toBase58?: unknown }).toBase58 === 'function') {
+    return ((value as { toBase58: () => string }).toBase58());
+  }
+  return null;
+}
+
+function parsedAccountKeyToBase58(entry: unknown): string | null {
+  if (!entry) return null;
+  if (typeof entry === 'string') return entry;
+  if (typeof entry === 'object' && entry && 'pubkey' in entry) {
+    return toBase58Like((entry as { pubkey?: unknown }).pubkey);
+  }
+  return null;
+}
+
 async function hasValidPostFeeTransfer(signature: string, organizer: string, treasury: string): Promise<boolean> {
   try {
     const connection = new Connection(process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'), 'confirmed');
@@ -58,10 +83,17 @@ async function hasValidCreateEventSignature(
 ): Promise<boolean> {
   try {
     const connection = new Connection(process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'), 'confirmed');
-    const tx = await connection.getParsedTransaction(signature, {
-      commitment: 'confirmed',
-      maxSupportedTransactionVersion: 0,
-    });
+    let tx: Awaited<ReturnType<typeof connection.getParsedTransaction>> | null = null;
+
+    for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
+      tx = await connection.getParsedTransaction(signature, {
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0,
+      });
+
+      if (tx) break;
+      await sleep(VERIFY_RETRY_DELAY_MS);
+    }
 
     if (!tx || tx.meta?.err) return false;
 
@@ -72,19 +104,21 @@ async function hasValidCreateEventSignature(
     const keys = tx.transaction.message.accountKeys;
     const hasSigner = keys.some((entry) => {
       if (typeof entry === 'string') return false;
-      return entry.pubkey.toBase58() === organizerKey && entry.signer;
+      const key = parsedAccountKeyToBase58(entry);
+      const isSigner = Boolean((entry as { signer?: boolean }).signer);
+      return key === organizerKey && isSigner;
     });
 
     const hasProgram = tx.transaction.message.instructions.some((instruction) => {
       if ('programId' in instruction) {
-        return instruction.programId.toBase58() === programId;
+        const instructionProgramId = toBase58Like((instruction as { programId?: unknown }).programId);
+        return instructionProgramId === programId;
       }
       return false;
     });
 
     const hasEventAccount = !eventKey || keys.some((entry) => {
-      if (typeof entry === 'string') return entry === eventKey;
-      return entry.pubkey.toBase58() === eventKey;
+      return parsedAccountKeyToBase58(entry) === eventKey;
     });
 
     return hasSigner && hasProgram && hasEventAccount;

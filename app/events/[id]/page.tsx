@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import { Transaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { useWallet } from '@/app/wallet-context';
@@ -121,9 +122,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
         const signature =
           typeof signedResult.signature === 'string'
             ? signedResult.signature
-            : Array.from(signedResult.signature)
-              .map((value: number) => value.toString(16).padStart(2, '0'))
-                .join('');
+            : bs58.encode(signedResult.signature);
 
         lastSignature = signature;
 

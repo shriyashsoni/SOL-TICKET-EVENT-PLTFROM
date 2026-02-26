@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clusterApiUrl, Connection, PublicKey } from '@solana/web3.js';
 
-const NETWORK_RPC: Record<string, string> = {
-  testnet: process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'),
-  mainnet: 'https://api.mainnet-beta.solana.com',
-};
+const TESTNET_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, publicKey, network } = await request.json();
+    const { action, publicKey } = await request.json();
 
-    const selectedNetwork = network === 'mainnet' ? 'mainnet' : 'testnet';
+    const selectedNetwork = 'testnet';
 
     if (action === 'balance') {
       if (!publicKey) {
@@ -20,7 +17,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const connection = new Connection(NETWORK_RPC[selectedNetwork], 'confirmed');
+      const connection = new Connection(TESTNET_RPC, 'confirmed');
       const wallet = new PublicKey(publicKey);
       const lamports = await connection.getBalance(wallet, 'confirmed');
       const balance = lamports / 1_000_000_000;

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type SolanaNetwork = 'testnet' | 'mainnet';
+type SolanaNetwork = 'testnet';
 
 type PhantomProvider = {
   isPhantom?: boolean;
@@ -90,14 +90,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setBalance(0);
   };
 
-  const switchNetwork = (newNetwork: SolanaNetwork) => {
-    setNetwork(newNetwork);
+  const switchNetwork = () => {
+    setNetwork('testnet');
     if (!publicKey) {
       setBalance(0);
       return;
     }
 
-    fetchBalance(publicKey, newNetwork).catch(() => {
+    fetchBalance(publicKey, 'testnet').catch(() => {
       setBalance(0);
     });
   };

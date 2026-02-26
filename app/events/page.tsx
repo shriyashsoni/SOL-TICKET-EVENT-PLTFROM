@@ -3,6 +3,7 @@
 import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { Transaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { Search, Calendar, MapPin, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
@@ -132,9 +133,7 @@ export default function EventsPage() {
     const createResult = await wallet.signAndSendTransaction(createTx);
     const createEventSignature = typeof createResult.signature === 'string'
       ? createResult.signature
-      : Array.from(createResult.signature)
-          .map((value: number) => value.toString(16).padStart(2, '0'))
-          .join('');
+      : bs58.encode(createResult.signature);
 
     const organizerName = typeof window !== 'undefined' ? localStorage.getItem('blink_user_name') : null;
     const response = await fetch('/api/events', {

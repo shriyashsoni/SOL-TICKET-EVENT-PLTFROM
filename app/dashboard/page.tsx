@@ -43,7 +43,7 @@ type PostedEventRecord = {
 };
 
 export default function DashboardPage() {
-  const { connected, publicKey, disconnectWallet, network, balance, switchNetwork, refreshBalance } = useWallet();
+  const { connected, publicKey, disconnectWallet, balance, refreshBalance } = useWallet();
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [postedEvents, setPostedEvents] = useState<PostedEventRecord[]>([]);
@@ -92,7 +92,7 @@ export default function DashboardPage() {
     };
 
     load();
-  }, [connected, publicKey, network]);
+  }, [connected, publicKey]);
 
   const totalSpent = useMemo(() => {
     return transactions
@@ -185,14 +185,9 @@ export default function DashboardPage() {
               <p className="text-lg text-muted-foreground">Manage your NFT tickets and blockchain assets</p>
             </div>
             <div className="flex items-center gap-4">
-              <select
-                value={network}
-                onChange={(e) => switchNetwork(e.target.value as 'testnet' | 'mainnet')}
-                className="px-4 py-2 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="testnet">Testnet</option>
-                <option value="mainnet">Mainnet</option>
-              </select>
+              <div className="px-4 py-2 bg-card border border-border rounded-lg text-foreground text-sm font-medium">
+                Testnet Only
+              </div>
               <button
                 onClick={disconnectWallet}
                 className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:opacity-90 transition inline-flex items-center gap-2"
@@ -249,9 +244,7 @@ export default function DashboardPage() {
 
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Network</p>
-                  <p className="font-medium text-foreground capitalize">
-                    {network === 'testnet' ? 'Testnet (Testing)' : 'Mainnet (Production)'}
-                  </p>
+                  <p className="font-medium text-foreground">Testnet (Fixed)</p>
                 </div>
               </div>
             </div>

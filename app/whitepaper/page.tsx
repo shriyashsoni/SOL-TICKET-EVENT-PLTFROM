@@ -67,7 +67,7 @@ export default function WhitepaperPage() {
                 </p>
                 <p className="text-foreground">
                   The platform supports multiple payment options (SOL and USDC) and operates on
-                  both Testnet and Mainnet, with zero platform fees.
+                  on Testnet, with zero platform fees.
                 </p>
               </section>
 
@@ -192,7 +192,7 @@ export default function WhitepaperPage() {
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">Next Milestones</h3>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Mainnet rollout with hardened observability</li>
+                      <li>Testnet hardening with stronger observability</li>
                       <li>Complete compressed NFT mint/verify integration</li>
                       <li>Organizer tooling for event account automation</li>
                     </ul>
