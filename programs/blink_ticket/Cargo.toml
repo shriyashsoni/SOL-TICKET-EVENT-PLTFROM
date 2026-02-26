@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anchor-lang = "0.29.0"
-solana-security-txt = "1.1.1"
 
 [lib]
 name = "blink_ticket"

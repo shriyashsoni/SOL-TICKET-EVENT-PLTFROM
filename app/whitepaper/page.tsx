@@ -135,7 +135,7 @@ export default function WhitepaperPage() {
                       ticket purchase checks, and payment transfer validation.
                     </p>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Program ID: DbiD7h8a1FrGUhUt7PdDpbHghMN6b98bRoxV5fyxmJS</li>
+                      <li>Program ID: E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc</li>
                       <li>Initialize program and create event instructions</li>
                       <li>Purchase ticket instruction with treasury payment</li>
                       <li>Event state tracking (supply, sold, revenue)</li>

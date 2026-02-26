@@ -17,7 +17,7 @@ import {
 } from '../../_utils';
 
 const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
-const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'DbiD7h8a1FrGUhUt7PdDpbHghMN6b98bRoxV5fyxmJS';
+const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
 
 type CreateEventPayload = {
   account?: string;

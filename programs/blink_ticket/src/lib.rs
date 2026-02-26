@@ -1,16 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("6n4YUpSqf56RS8388XFts4atEijF31Mikw6yi1R3knn9");
-
-solana_security_txt::security_txt! {
-    name: "Blink Ticket",
-    project_url: "https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM",
-    contacts: "link:https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/security/advisories/new",
-    policy: "https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/security/policy",
-    source_code: "https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM",
-    source_release: "https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/releases",
-    auditors: "none"
-}
+declare_id!("E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc");
 
 pub mod instructions;
 pub mod state;
