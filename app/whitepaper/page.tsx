@@ -135,9 +135,11 @@ export default function WhitepaperPage() {
                       ticket purchase checks, and payment transfer validation.
                     </p>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
+                      <li>Program ID: DbiD7h8a1FrGUhUt7PdDpbHghMN6b98bRoxV5fyxmJS</li>
                       <li>Initialize program and create event instructions</li>
                       <li>Purchase ticket instruction with treasury payment</li>
                       <li>Event state tracking (supply, sold, revenue)</li>
+                      <li>Fallback direct SOL transfer supported for action compatibility</li>
                     </ul>
                   </div>
                   <div>
@@ -182,6 +184,7 @@ export default function WhitepaperPage() {
                     <h3 className="text-xl font-bold mb-2 text-foreground">Live on Testnet</h3>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
                       <li>Anchor program deployed on Solana testnet</li>
+                      <li>Deployment signature: 4WySfMFgCAGtm9jUv4dHFvBtcXbDjEX2Vkt7dkEs6cXe2Zj3py5R5BaAx4EbsTG4kLFtgmTwFH1ATNvJDP5563bA</li>
                       <li>Phantom wallet connect and signing flow</li>
                       <li>Real event listing, purchase, tickets, and dashboard state</li>
                     </ul>

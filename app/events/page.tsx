@@ -4,18 +4,22 @@ import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { Search, Calendar, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import Link from 'next/link';
+import { useWallet } from '@/app/wallet-context';
 
 type EventRecord = {
   id: string;
   name: string;
+  description?: string;
   date: string;
   location: string;
   price_sol: number;
   total_tickets: number;
   available_tickets: number;
   category: string;
+  organizer_name?: string;
+  event_account?: string;
 };
 
 type EventsApiResponse = {
@@ -25,10 +29,22 @@ type EventsApiResponse = {
 const categories = ['All', 'Music', 'Conference', 'Gaming', 'Art'];
 
 export default function EventsPage() {
+  const { publicKey } = useWallet();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [formState, setFormState] = useState({
+    name: '',
+    date: '',
+    location: '',
+    category: 'General',
+    description: '',
+    price_sol: '',
+    total_tickets: '',
+  });
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -46,6 +62,48 @@ export default function EventsPage() {
 
     loadEvents();
   }, []);
+
+  const onCreateEvent = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitMessage('');
+
+    try {
+      const organizerName = typeof window !== 'undefined' ? localStorage.getItem('blink_user_name') : null;
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formState,
+          price_sol: Number(formState.price_sol),
+          total_tickets: Number(formState.total_tickets),
+          organizer_wallet: publicKey || 'guest',
+          organizer_name: organizerName || 'Anonymous',
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to create event');
+      }
+
+      setEvents((prev) => [payload.data, ...prev]);
+      setFormState({
+        name: '',
+        date: '',
+        location: '',
+        category: 'General',
+        description: '',
+        price_sol: '',
+        total_tickets: '',
+      });
+      setSubmitMessage('Event posted successfully and is visible to all users.');
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : 'Failed to post event');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filteredEvents = useMemo(() => {
     return events.filter((event: EventRecord) => {
@@ -68,6 +126,75 @@ export default function EventsPage() {
           </div>
 
           <div className="mb-8 space-y-4">
+            <form onSubmit={onCreateEvent} className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <h2 className="text-lg font-semibold">Post an Event</h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  required
+                  placeholder="Event name"
+                  value={formState.name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+                <input
+                  required
+                  placeholder="Location"
+                  value={formState.location}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+                <input
+                  required
+                  type="date"
+                  value={formState.date}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="Ticket price (SOL)"
+                  value={formState.price_sol}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, price_sol: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  placeholder="Total tickets"
+                  value={formState.total_tickets}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, total_tickets: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+                <input
+                  placeholder="Category"
+                  value={formState.category}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                />
+              </div>
+              <textarea
+                placeholder="Description"
+                value={formState.description}
+                onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 bg-background border border-border rounded-md min-h-24"
+              />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Anyone can post. Connected wallet is used as organizer when available.</p>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-70"
+                >
+                  {submitting ? 'Posting...' : 'Post Event'}
+                </button>
+              </div>
+              {submitMessage && <p className="text-sm text-muted-foreground">{submitMessage}</p>}
+            </form>
+
             <div className="relative">
               <Search className="absolute left-4 top-3.5 w-5 h-5 text-muted-foreground" />
               <input

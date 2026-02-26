@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event } from '@/lib/db';
+import { Keypair } from '@solana/web3.js';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,15 +12,15 @@ export async function GET(request: NextRequest) {
     if (id) {
       const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [id]);
       return NextResponse.json({
-        success: true,
         data: event,
+        success: true,
       });
     }
 
     let query = 'SELECT * FROM events';
     const params: any[] = [];
 
-    if (category && category !== 'All') {
+    if (category) {
       query += ' WHERE category = ?';
       params.push(category);
     }
@@ -53,14 +54,46 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, date, location, price_sol, price_usdc, total_tickets, category, description, organizer_wallet } = body;
+    const {
+      name,
+      date,
+      location,
+      price_sol,
+      total_tickets,
+      category,
+      description,
+      organizer_wallet,
+      organizer_name,
+    } = body;
+
+    if (!name || !date || !location || !price_sol || !total_tickets) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
 
     const id = `event-${Date.now()}`;
-    
+    const generatedEventAccount = Keypair.generate().publicKey.toBase58();
+    const priceUsdc = Math.round(Number(price_sol) * 60);
+
     await dbRun(
-      `INSERT INTO events (id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, total_tickets, organizer_wallet]
+      'INSERT INTO events (id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        name,
+        description || '',
+        location,
+        date,
+        category || 'General',
+        Number(price_sol),
+        priceUsdc,
+        Number(total_tickets),
+        Number(total_tickets),
+        organizer_wallet || 'guest',
+        organizer_name || 'Anonymous',
+        generatedEventAccount,
+      ]
     );
 
     const newEvent = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [id]);

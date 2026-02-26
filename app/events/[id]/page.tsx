@@ -17,6 +17,8 @@ type EventDetail = {
   price_sol: number;
   category: string;
   organizer_wallet: string;
+  organizer_name?: string;
+  event_account?: string;
   total_tickets: number;
   available_tickets: number;
 };
@@ -94,7 +96,10 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
       let lastSignature = '';
 
       for (let count = 0; count < quantity; count += 1) {
-        const actionResponse = await fetch(`/api/actions/events/${event.id}`, {
+        const actionUrl = event.event_account
+          ? `/api/actions/events/${event.id}?eventAccount=${encodeURIComponent(event.event_account)}`
+          : `/api/actions/events/${event.id}`;
+        const actionResponse = await fetch(actionUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ account: publicKey }),

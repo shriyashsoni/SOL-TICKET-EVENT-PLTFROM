@@ -13,6 +13,8 @@ export interface Event {
   total_tickets: number;
   available_tickets: number;
   organizer_wallet: string;
+  organizer_name?: string;
+  event_account?: string;
   created_at: string;
 }
 
@@ -55,95 +57,14 @@ const database: {
   initialized: false,
 };
 
-// Initialize database with sample data
+// Initialize database (empty; events are user-created)
 function initializeDatabase() {
   if (database.initialized) return;
-  
-  database.events = [
-    {
-      id: 'event-1',
-      name: 'Solana Summer Festival 2024',
-      description: 'The most anticipated Solana event of the summer featuring live performances and workshops.',
-      location: 'Austin, Texas',
-      date: 'June 15-17, 2024',
-      category: 'Music',
-      price_sol: 2.5,
-      price_usdc: 150,
-      total_tickets: 5000,
-      available_tickets: 1800,
-      organizer_wallet: 'organizer1.sol',
-      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'event-2',
-      name: 'Web3 Developer Conference',
-      description: 'Connect with industry leaders and learn the latest in blockchain technology.',
-      location: 'San Francisco, CA',
-      date: 'July 20-22, 2024',
-      category: 'Conference',
-      price_sol: 3.0,
-      price_usdc: 180,
-      total_tickets: 2500,
-      available_tickets: 650,
-      organizer_wallet: 'organizer2.sol',
-      created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'event-3',
-      name: 'Blockchain Gaming Expo',
-      description: 'The largest gaming expo focused on blockchain and Web3 games.',
-      location: 'Los Angeles, CA',
-      date: 'August 10-12, 2024',
-      category: 'Gaming',
-      price_sol: 1.8,
-      price_usdc: 110,
-      total_tickets: 6000,
-      available_tickets: 1500,
-      organizer_wallet: 'organizer3.sol',
-      created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
 
-  // Generate sample tickets sold
-  for (let i = 0; i < 3200; i++) {
-    database.tickets.push({
-      id: `ticket-${i}`,
-      event_id: 'event-1',
-      owner_wallet: `user${Math.floor(Math.random() * 500) + 1}.sol`,
-      purchased_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      price_paid_sol: 2.5,
-    });
-  }
-
-  for (let i = 0; i < 1850; i++) {
-    database.tickets.push({
-      id: `ticket-${3200 + i}`,
-      event_id: 'event-2',
-      owner_wallet: `user${Math.floor(Math.random() * 500) + 1}.sol`,
-      purchased_at: new Date(Date.now() - Math.random() * 25 * 24 * 60 * 60 * 1000).toISOString(),
-      price_paid_sol: 3.0,
-    });
-  }
-
-  for (let i = 0; i < 4500; i++) {
-    database.tickets.push({
-      id: `ticket-${5050 + i}`,
-      event_id: 'event-3',
-      owner_wallet: `user${Math.floor(Math.random() * 500) + 1}.sol`,
-      purchased_at: new Date(Date.now() - Math.random() * 20 * 24 * 60 * 60 * 1000).toISOString(),
-      price_paid_sol: 1.8,
-    });
-  }
-
-  // Create unique users
-  const uniqueWallets = new Set(database.tickets.map(t => t.owner_wallet));
-  uniqueWallets.forEach((wallet) => {
-    database.users.push({
-      id: `user-${wallet}`,
-      wallet_address: wallet,
-      created_at: new Date().toISOString(),
-    });
-  });
+  database.events = [];
+  database.users = [];
+  database.tickets = [];
+  database.transactions = [];
 
   database.initialized = true;
 }
@@ -201,7 +122,7 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
   initializeDatabase();
 
   if (query.includes('INSERT INTO events')) {
-    const [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet] = params;
+    const [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account] = params;
     database.events.push({
       id,
       name,
@@ -214,6 +135,8 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       total_tickets,
       available_tickets,
       organizer_wallet,
+      organizer_name,
+      event_account,
       created_at: new Date().toISOString(),
     });
     return { lastID: database.events.length, changes: 1 };

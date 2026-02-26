@@ -24,6 +24,15 @@ type ActionPostBody = {
   account?: string;
 };
 
+function tryParsePublicKey(value?: string | null): PublicKey | null {
+  if (!value) return null;
+  try {
+    return new PublicKey(value);
+  } catch {
+    return null;
+  }
+}
+
 function getActionUrl(eventId: string, request: NextRequest): string {
   const url = new URL(request.url);
   return `${url.origin}/api/actions/events/${eventId}`;
@@ -92,12 +101,14 @@ export async function POST(
     const buyer = new PublicKey(parsePublicKeyString(body.account ?? null, 'account'));
 
     const searchParams = request.nextUrl.searchParams;
-    const eventAccount = new PublicKey(
-      parsePublicKeyString(searchParams.get('eventAccount') ?? process.env.BLINK_EVENT_ACCOUNT ?? null, 'eventAccount')
+    const eventAccount = tryParsePublicKey(
+      searchParams.get('eventAccount') ?? event.event_account ?? process.env.BLINK_EVENT_ACCOUNT ?? null
     );
-    const treasury = new PublicKey(
-      parsePublicKeyString(searchParams.get('treasury') ?? process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY, 'treasury')
-    );
+    const treasury =
+      tryParsePublicKey(searchParams.get('treasury'))
+      ?? tryParsePublicKey(event.organizer_wallet)
+      ?? tryParsePublicKey(process.env.BLINK_EVENT_TREASURY)
+      ?? new PublicKey(DEFAULT_TREASURY);
     const programId = new PublicKey(PROGRAM_ID);
 
     const lamports = BigInt(Math.round(event.price_sol * 1_000_000_000));
@@ -108,21 +119,25 @@ export async function POST(
       );
     }
 
-    const instructionData = Buffer.concat([
-      anchorDiscriminator('purchase_ticket'),
-      encodeU64LE(lamports),
-    ]);
-
-    const purchaseIx = new TransactionInstruction({
-      programId,
-      keys: [
-        { pubkey: eventAccount, isSigner: false, isWritable: true },
-        { pubkey: buyer, isSigner: true, isWritable: true },
-        { pubkey: treasury, isSigner: false, isWritable: true },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: instructionData,
-    });
+    const purchaseIx = eventAccount
+      ? new TransactionInstruction({
+          programId,
+          keys: [
+            { pubkey: eventAccount, isSigner: false, isWritable: true },
+            { pubkey: buyer, isSigner: true, isWritable: true },
+            { pubkey: treasury, isSigner: false, isWritable: true },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          ],
+          data: Buffer.concat([
+            anchorDiscriminator('purchase_ticket'),
+            encodeU64LE(lamports),
+          ]),
+        })
+      : SystemProgram.transfer({
+          fromPubkey: buyer,
+          toPubkey: treasury,
+          lamports: Number(lamports),
+        });
 
     const connection = new Connection(DEFAULT_RPC, 'confirmed');
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');

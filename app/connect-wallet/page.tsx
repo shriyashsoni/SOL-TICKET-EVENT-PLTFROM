@@ -16,6 +16,15 @@ export default function ConnectWalletPage() {
     setError(null);
     try {
       await connectWallet();
+      if (typeof window !== 'undefined') {
+        const existingName = localStorage.getItem('blink_user_name');
+        if (!existingName) {
+          const enteredName = window.prompt('Enter your name for event posting and profile:')?.trim();
+          if (enteredName) {
+            localStorage.setItem('blink_user_name', enteredName);
+          }
+        }
+      }
       router.push('/dashboard');
     } catch (error) {
       console.error('Connection failed:', error);

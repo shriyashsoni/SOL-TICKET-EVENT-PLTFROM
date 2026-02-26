@@ -70,6 +70,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const wallet = result.publicKey.toString();
       setPublicKey(wallet);
       setConnected(true);
+      const existingName = localStorage.getItem('blink_user_name');
+      if (!existingName) {
+        const enteredName = window.prompt('Enter your name for event posting and profile:')?.trim();
+        if (enteredName) {
+          localStorage.setItem('blink_user_name', enteredName);
+        }
+      }
       await fetchBalance(wallet, network);
     } finally {
       setLoading(false);
