@@ -217,6 +217,12 @@ export default function DashboardPage() {
             >
               View Events
             </Link>
+            <Link
+              href="/whitepaper"
+              className="px-4 py-2 rounded-lg border border-border bg-card text-foreground font-medium hover:border-accent transition"
+            >
+              Whitepaper
+            </Link>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
@@ -310,6 +316,12 @@ export default function DashboardPage() {
             ) : postedEvents.length === 0 ? (
               <div className="bg-card border border-border rounded-lg p-8 text-center">
                 <p className="text-muted-foreground">No events posted yet.</p>
+                <Link
+                  href="/whitepaper"
+                  className="inline-flex items-center gap-2 mt-3 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:border-accent transition"
+                >
+                  Read posting guide
+                </Link>
               </div>
             ) : (
               <div className="space-y-4">
@@ -356,12 +368,20 @@ export default function DashboardPage() {
             ) : tickets.length === 0 ? (
               <div className="bg-card border border-border rounded-lg p-12 text-center">
                 <p className="text-lg text-muted-foreground mb-4">No tickets yet</p>
-                <Link
-                  href="/events"
-                  className="inline-flex items-center gap-2 px-6 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 transition"
-                >
-                  Browse Events
-                </Link>
+                <div className="flex items-center justify-center gap-3">
+                  <Link
+                    href="/events"
+                    className="inline-flex items-center gap-2 px-6 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 transition"
+                  >
+                    Browse Events
+                  </Link>
+                  <Link
+                    href="/whitepaper"
+                    className="inline-flex items-center gap-2 px-6 py-2 border border-border rounded-lg font-medium hover:border-accent transition"
+                  >
+                    Learn More
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">

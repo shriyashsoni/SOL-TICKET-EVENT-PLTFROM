@@ -3,7 +3,7 @@
 import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { useWallet } from '@/app/wallet-context';
-import { ArrowRight, Ticket, TrendingUp, Zap } from 'lucide-react';
+import { ArrowRight, Bot, CalendarPlus, ChartNoAxesCombined, ShieldCheck, Sparkles, Ticket, Wallet, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
@@ -61,17 +61,21 @@ export default function Home() {
       <HeaderWrapper />
       <main className="min-h-screen">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-background via-card to-background py-20 md:py-32 border-b border-border">
+        <section className="bg-gradient-to-b from-background via-card to-background py-20 md:py-28 border-b border-border">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h1 className="text-5xl md:text-6xl font-bold mb-6 text-balance">
-                  The Future of Event Ticketing
+                <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-sm text-accent mb-5">
+                  <Sparkles className="w-4 h-4" />
+                  AI + On-chain Ticket Platform (Testnet)
+                </div>
+                <h1 className="text-5xl md:text-6xl font-bold mb-6 text-balance leading-tight">
+                  Create and sell tickets with one link
                 </h1>
                 <p className="text-xl text-muted-foreground mb-8">
-                  Buy, sell, and manage NFT tickets on Solana. Instant transfers, verifiable ownership, and zero fees.
+                  Paste an event URL, auto-fill details with AI scraping, post on Solana testnet, and sell tickets with verifiable on-chain transactions.
                 </p>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <Link
                     href="/events"
                     className="px-8 py-3 bg-gradient-to-r from-accent to-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition inline-flex items-center gap-2"
@@ -79,7 +83,15 @@ export default function Home() {
                     Browse Events
                     <ArrowRight className="w-5 h-5" />
                   </Link>
-                  {!isConnected && (
+                  {isConnected ? (
+                    <Link
+                      href="/dashboard"
+                      className="px-8 py-3 border border-accent text-accent rounded-lg font-semibold hover:bg-accent hover:text-accent-foreground transition inline-flex items-center gap-2"
+                    >
+                      Open Dashboard
+                      <ChartNoAxesCombined className="w-5 h-5" />
+                    </Link>
+                  ) : (
                     <Link
                       href="/connect-wallet"
                       className="px-8 py-3 border border-accent text-accent rounded-lg font-semibold hover:bg-accent hover:text-accent-foreground transition"
@@ -87,21 +99,77 @@ export default function Home() {
                       Connect Wallet
                     </Link>
                   )}
+                  <Link
+                    href="/whitepaper"
+                    className="px-8 py-3 border border-border text-foreground rounded-lg font-semibold hover:bg-muted transition inline-flex items-center gap-2"
+                  >
+                    Read Whitepaper
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3 mt-8">
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Network</p>
+                    <p className="font-semibold">Solana Testnet</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Posting Fee</p>
+                    <p className="font-semibold">0.0001 SOL</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Verification</p>
+                    <p className="font-semibold">On-chain checked</p>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-2xl p-8 flex flex-col justify-center items-center h-48">
-                  <Ticket className="w-12 h-12 text-accent mb-4" />
-                  <p className="text-center text-sm font-medium">NFT Tickets</p>
+                <div className="bg-gradient-to-br from-primary/20 to-accent/20 border border-border rounded-2xl p-6 flex flex-col justify-center items-center h-44 text-center">
+                  <Bot className="w-10 h-10 text-accent mb-3" />
+                  <p className="font-semibold">AI Event Scraping</p>
+                  <p className="text-xs text-muted-foreground mt-1">Auto-fill title, date, venue, image</p>
                 </div>
-                <div className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-2xl p-8 flex flex-col justify-center items-center h-48">
-                  <Zap className="w-12 h-12 text-accent mb-4" />
-                  <p className="text-center text-sm font-medium">Instant Transfers</p>
+                <div className="bg-gradient-to-br from-primary/20 to-accent/20 border border-border rounded-2xl p-6 flex flex-col justify-center items-center h-44 text-center">
+                  <ShieldCheck className="w-10 h-10 text-accent mb-3" />
+                  <p className="font-semibold">On-chain Event Post</p>
+                  <p className="text-xs text-muted-foreground mt-1">Program PDA + posting fee enforcement</p>
                 </div>
-                <div className="col-span-2 bg-gradient-to-br from-pink-600/20 to-orange-600/20 border border-pink-500/30 rounded-2xl p-8 flex flex-col justify-center items-center h-48">
-                  <TrendingUp className="w-12 h-12 text-accent mb-4" />
-                  <p className="text-center text-sm font-medium">Resale Market</p>
+                <div className="col-span-2 bg-gradient-to-br from-primary/20 to-accent/20 border border-border rounded-2xl p-6 flex flex-col justify-center items-center h-44 text-center">
+                  <Wallet className="w-10 h-10 text-accent mb-3" />
+                  <p className="font-semibold">Organizer Dashboard</p>
+                  <p className="text-xs text-muted-foreground mt-1">Track sales, profit, and withdraw earnings</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Core Features */}
+        <section className="py-16 border-b border-border bg-card/40">
+          <div className="container mx-auto px-4">
+            <div className="mb-10">
+              <h2 className="text-3xl font-bold mb-3">Core Platform Features</h2>
+              <p className="text-muted-foreground">Everything needed to post, sell, verify, and manage ticket events.</p>
+            </div>
+            <div className="grid md:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-border bg-card p-5">
+                <CalendarPlus className="w-6 h-6 text-accent mb-3" />
+                <h3 className="font-semibold mb-1">Create from URL</h3>
+                <p className="text-sm text-muted-foreground">Use one event link to prefill details and publish faster.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <Ticket className="w-6 h-6 text-accent mb-3" />
+                <h3 className="font-semibold mb-1">NFT-style Tickets</h3>
+                <p className="text-sm text-muted-foreground">Each purchase is tied to a verified on-chain transaction.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <Zap className="w-6 h-6 text-accent mb-3" />
+                <h3 className="font-semibold mb-1">Reliable Verification</h3>
+                <p className="text-sm text-muted-foreground">Backend retries and RPC fallback improve confirmation stability.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <ChartNoAxesCombined className="w-6 h-6 text-accent mb-3" />
+                <h3 className="font-semibold mb-1">Sales & Profit View</h3>
+                <p className="text-sm text-muted-foreground">Public sold/profit metrics plus organizer withdrawal actions.</p>
               </div>
             </div>
           </div>
@@ -144,7 +212,7 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="mb-12">
               <h2 className="text-4xl font-bold mb-4">Featured Events</h2>
-              <p className="text-lg text-muted-foreground">Discover upcoming events and get your NFT tickets</p>
+              <p className="text-lg text-muted-foreground">Discover live events and buy verified tickets on Solana testnet</p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
@@ -223,11 +291,34 @@ export default function Home() {
         {/* CTA Section */}
         <section className="py-20 bg-gradient-to-r from-primary/10 to-accent/10 border-t border-border">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="text-4xl font-bold mb-6">Ready to Get Your First NFT Ticket?</h2>
+            <h2 className="text-4xl font-bold mb-6">Ready to launch your next event?</h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Connect your Phantom wallet and start buying verified NFT tickets today
+              Connect Phantom, create events from links, and let users purchase tickets with on-chain verification.
             </p>
-            {!isConnected && (
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                href="/events"
+                className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-accent to-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition"
+              >
+                Explore Events
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/whitepaper"
+                className="inline-flex items-center gap-2 px-8 py-3 border border-accent text-accent rounded-lg font-semibold hover:bg-accent hover:text-accent-foreground transition"
+              >
+                Read Whitepaper
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+              {isConnected ? (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 px-8 py-3 border border-accent text-accent rounded-lg font-semibold hover:bg-accent hover:text-accent-foreground transition"
+                >
+                  Go to Dashboard
+                  <ChartNoAxesCombined className="w-5 h-5" />
+                </Link>
+              ) : (
               <Link
                 href="/connect-wallet"
                 className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-accent to-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition"
@@ -235,7 +326,8 @@ export default function Home() {
                 Connect Wallet Now
                 <ArrowRight className="w-5 h-5" />
               </Link>
-            )}
+              )}
+            </div>
           </div>
         </section>
       </main>

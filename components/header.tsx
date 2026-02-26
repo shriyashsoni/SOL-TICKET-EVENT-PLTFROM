@@ -46,6 +46,9 @@ export function Header() {
             <Link href="/events" className="text-foreground hover:text-accent transition">
               Events
             </Link>
+            <Link href="/whitepaper" className="text-foreground hover:text-accent transition">
+              Whitepaper
+            </Link>
             <Link href="/about" className="text-foreground hover:text-accent transition">
               About
             </Link>
@@ -125,6 +128,13 @@ export function Header() {
               onClick={() => setMobileOpen(false)}
             >
               About
+            </Link>
+            <Link
+              href="/whitepaper"
+              className="text-foreground hover:text-accent transition py-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Whitepaper
             </Link>
             {connected && publicKey ? (
               <button

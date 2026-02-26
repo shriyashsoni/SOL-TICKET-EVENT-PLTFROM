@@ -1,12 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event, type Ticket } from '@/lib/db';
 import { clusterApiUrl, Connection } from '@solana/web3.js';
+import bs58 from 'bs58';
 
-const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
+const VERIFY_RETRIES = 8;
+const VERIFY_RETRY_DELAY_MS = 500;
+
+function resolveTestnetRpcCandidates(): string[] {
+  const candidates: string[] = [];
+  const configured = process.env.SOLANA_RPC_URL?.trim();
+
+  if (configured && configured.toLowerCase().includes('testnet')) {
+    candidates.push(configured);
+  }
+
+  candidates.push(clusterApiUrl('testnet'));
+  candidates.push('https://api.testnet.solana.com');
+
+  return Array.from(new Set(candidates));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLikelyBase58Signature(signature: string): boolean {
+  try {
+    const decoded = bs58.decode(signature);
+    return decoded.length === 64;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = request.nextUrl;
     const publicKey = searchParams.get('publicKey');
 
     if (!publicKey) {
@@ -66,6 +95,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!isLikelyBase58Signature(signature)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid signature format (expected base58)' },
+          { status: 400 }
+        );
+      }
+
       const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [eventId]);
       if (!event) {
         return NextResponse.json(
@@ -74,29 +110,63 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const connection = new Connection(DEFAULT_RPC, 'confirmed');
-      const status = await connection.getSignatureStatus(signature, { searchTransactionHistory: true });
-      const confirmation = status.value;
+      let parsedTx: Awaited<ReturnType<Connection['getParsedTransaction']>> | null = null;
+      let confirmationState: 'processed' | 'confirmed' | 'finalized' | null = null;
+      let hadOnChainError = false;
 
-      if (!confirmation || confirmation.err) {
+      for (const rpc of resolveTestnetRpcCandidates()) {
+        const connection = new Connection(rpc, 'confirmed');
+
+        for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
+          const status = await connection.getSignatureStatus(signature, { searchTransactionHistory: true });
+          const confirmation = status.value;
+
+          if (confirmation?.err) {
+            hadOnChainError = true;
+            break;
+          }
+
+          if (confirmation?.confirmationStatus) {
+            confirmationState = confirmation.confirmationStatus;
+          }
+
+          parsedTx = await connection.getParsedTransaction(signature, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0,
+          });
+
+          if (parsedTx) {
+            break;
+          }
+
+          await sleep(VERIFY_RETRY_DELAY_MS);
+        }
+
+        if (parsedTx || hadOnChainError) {
+          break;
+        }
+      }
+
+      if (hadOnChainError) {
         return NextResponse.json(
-          { success: false, error: 'Transaction verification failed on-chain' },
+          { success: false, error: 'Transaction failed on-chain' },
           { status: 400 }
         );
       }
 
-      const confirmationState = confirmation.confirmationStatus;
-      if (confirmationState !== 'confirmed' && confirmationState !== 'finalized') {
+      if (!parsedTx) {
         return NextResponse.json(
-          { success: false, error: 'Transaction not confirmed yet. Please retry in a moment.' },
+          {
+            success: false,
+            error: 'Transaction not confirmed yet. Please retry in a moment.',
+            hint: {
+              rpcCandidatesTried: resolveTestnetRpcCandidates(),
+              signature,
+            },
+          },
           { status: 409 }
         );
       }
-
-      const parsedTx = await connection.getParsedTransaction(signature, {
-        commitment: 'confirmed',
-        maxSupportedTransactionVersion: 0,
-      });
 
       const buyerSigned = parsedTx?.transaction.message.accountKeys.some(
         (account) => account.signer && account.pubkey.toBase58() === publicKey
@@ -119,7 +189,7 @@ export async function POST(request: NextRequest) {
 
       await dbRun(
         'INSERT INTO transactions (id, type, event_id, user_wallet, amount_sol, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [`tx-${Date.now()}`, 'purchase', eventId, publicKey, paidSol, confirmationState]
+        [`tx-${Date.now()}`, 'purchase', eventId, publicKey, paidSol, confirmationState ?? 'confirmed']
       );
 
       return NextResponse.json({

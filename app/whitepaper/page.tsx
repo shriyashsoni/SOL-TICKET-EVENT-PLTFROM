@@ -16,9 +16,24 @@ export default function WhitepaperPage() {
             <div className="mb-12">
               <h1 className="text-3xl md:text-5xl font-bold mb-4">BlinkTicket Whitepaper</h1>
               <p className="text-base md:text-xl text-muted-foreground">
-                Direct event ticketing via social feeds on Solana
+                Link-to-event publishing and on-chain ticket verification on Solana Testnet
               </p>
               <p className="text-sm text-muted-foreground mt-4">Version 2.0 | 2026</p>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4 mb-12">
+              <div className="bg-card border border-border rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Network</p>
+                <p className="font-semibold">Solana Testnet</p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Program ID</p>
+                <p className="font-semibold break-all text-sm">E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc</p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Event Post Fee</p>
+                <p className="font-semibold">0.0001 SOL</p>
+              </div>
             </div>
 
             {/* Table of Contents */}
@@ -49,6 +64,10 @@ export default function WhitepaperPage() {
                   <ChevronRight className="w-4 h-4" />
                   6. Current Status
                 </a>
+                <a href="#security" className="flex items-center gap-2 text-accent hover:underline">
+                  <ChevronRight className="w-4 h-4" />
+                  7. Security and Verification
+                </a>
               </nav>
             </div>
 
@@ -66,8 +85,8 @@ export default function WhitepaperPage() {
                   benefits of blockchain technology while reducing operational costs to near-zero.
                 </p>
                 <p className="text-foreground">
-                  The platform supports multiple payment options (SOL and USDC) and operates on
-                  on Testnet, with zero platform fees.
+                  The platform supports a practical event lifecycle: scrape event details from a URL,
+                  create an on-chain event transaction, verify signatures, and enable wallet-based ticket purchases.
                 </p>
               </section>
 
@@ -80,6 +99,7 @@ export default function WhitepaperPage() {
                       <li>Ticket fraud and counterfeiting remains prevalent</li>
                       <li>Secondary market scalping artificially inflates prices</li>
                       <li>Lack of transparency in ticket transactions</li>
+                      <li>Unreliable off-chain confirmation flows confuse users</li>
                       <li>High platform fees reduce artist and organizer revenue</li>
                       <li>Slow settlement times and payment processing</li>
                       <li>Limited interoperability between ticketing platforms</li>
@@ -99,27 +119,29 @@ export default function WhitepaperPage() {
               <section id="solution" className="bg-card border border-border rounded-lg p-6 md:p-8">
                 <h2 className="text-3xl font-bold mb-4 text-foreground">3. Solution</h2>
                 <p className="text-foreground mb-4">
-                  BlinkTicket combines Solana Actions/Blinks, compressed NFT ticketing, and
-                  an Anchor smart contract so users can buy from social feeds in one flow.
+                  BlinkTicket combines AI-assisted metadata extraction, Solana action transactions,
+                  and an Anchor smart contract so organizers and attendees can complete posting and purchase
+                  in a wallet-native flow.
                 </p>
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">3.1 Key Features</h3>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Social-feed checkout with Solana Blinks</li>
-                      <li>Immutable ticket ownership verified on Solana</li>
+                      <li>Create event drafts from URL scraping (title, date, location, poster)</li>
+                      <li>On-chain create-event posting with enforced posting fee transfer</li>
+                      <li>Immutable ticket ownership and purchase verification on Solana</li>
                       <li>On-chain payment settlement to organizer treasury</li>
-                      <li>Low-cost minting design for compressed NFT tickets</li>
+                      <li>Dashboard metrics for event sales, revenue, and withdrawals</li>
+                      <li>Retry + RPC fallback verification for stronger reliability</li>
                       <li>Wallet-native signing with Phantom</li>
-                      <li>Zero platform fees for organizers and fans</li>
                     </ul>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">3.2 User Benefits</h3>
                     <p className="text-foreground">
-                      Event attendees enjoy lower prices, instant transfers, and verified ownership.
-                      Event organizers maintain complete control over ticket distribution and capture
-                      full ticket revenue.
+                      Event attendees get transparent ticket state and on-chain confirmation.
+                      Organizers can publish faster with URL intake, track performance, and withdraw
+                      accumulated profit from a unified dashboard flow.
                     </p>
                   </div>
                 </div>
@@ -137,6 +159,7 @@ export default function WhitepaperPage() {
                     <ul className="space-y-2 text-foreground list-disc list-inside">
                       <li>Program ID: E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc</li>
                       <li>Initialize program and create event instructions</li>
+                      <li>Create-event posting fee transfer constraint (0.0001 SOL)</li>
                       <li>Purchase ticket instruction with treasury payment</li>
                       <li>Event state tracking (supply, sold, revenue)</li>
                       <li>Fallback direct SOL transfer supported for action compatibility</li>
@@ -145,8 +168,9 @@ export default function WhitepaperPage() {
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">4.2 App + API</h3>
                     <p className="text-foreground">
-                      Next.js API routes generate action transactions for wallet signing and
-                      the frontend consumes live wallet, event, ticket, and transaction state.
+                      Next.js API routes generate action transactions for wallet signing, verify
+                      resulting signatures, and persist event/ticket records. Verification is hardened
+                      using retries and testnet RPC fallback endpoints.
                     </p>
                   </div>
                 </div>
@@ -158,20 +182,21 @@ export default function WhitepaperPage() {
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">5.1 Pricing Model</h3>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Zero platform fees for organizers and buyers</li>
+                      <li>Event post fee: 0.0001 SOL (enforced on-chain)</li>
+                      <li>Ticket price is organizer-defined per event (SOL)</li>
                       <li>Network fees paid to Solana validators (~0.00001 SOL per transaction)</li>
-                      <li>Tickets priced in SOL or USDC at organizer's discretion</li>
+                      <li>Organizer revenue visibility and withdrawal tracking in dashboard</li>
                     </ul>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">5.2 Cost Analysis</h3>
                     <p className="text-foreground mb-2">
-                      Event with 1,000,000 tickets:
+                      Typical benefits versus traditional ticket stacks:
                     </p>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Traditional platform: ~$150,000-250,000 in fees</li>
-                      <li>BlinkTicket: ~10-50 SOL (~$1,000-5,000)</li>
-                      <li>Savings: ~97% reduction in ticketing costs</li>
+                      <li>Near-instant settlement on Solana testnet</li>
+                      <li>Transparent transaction verification for users and organizers</li>
+                      <li>Reduced platform overhead through wallet-native actions</li>
                     </ul>
                   </div>
                 </div>
@@ -186,18 +211,29 @@ export default function WhitepaperPage() {
                       <li>Anchor program deployed on Solana testnet</li>
                       <li>Deployment signature: 4WySfMFgCAGtm9jUv4dHFvBtcXbDjEX2Vkt7dkEs6cXe2Zj3py5R5BaAx4EbsTG4kLFtgmTwFH1ATNvJDP5563bA</li>
                       <li>Phantom wallet connect and signing flow</li>
-                      <li>Real event listing, purchase, tickets, and dashboard state</li>
+                      <li>Real event posting, purchase, tickets, and dashboard state</li>
+                      <li>Link scraping endpoint for event metadata autofill</li>
                     </ul>
                   </div>
                   <div>
                     <h3 className="text-xl font-bold mb-2 text-foreground">Next Milestones</h3>
                     <ul className="space-y-2 text-foreground list-disc list-inside">
-                      <li>Testnet hardening with stronger observability</li>
-                      <li>Complete compressed NFT mint/verify integration</li>
-                      <li>Organizer tooling for event account automation</li>
+                      <li>Persistent database layer for production-grade storage</li>
+                      <li>Extended organizer analytics and export tooling</li>
+                      <li>Mainnet readiness checklist and launch process</li>
                     </ul>
                   </div>
                 </div>
+              </section>
+
+              <section id="security" className="bg-card border border-border rounded-lg p-6 md:p-8">
+                <h2 className="text-3xl font-bold mb-4 text-foreground">7. Security and Verification</h2>
+                <ul className="space-y-2 text-foreground list-disc list-inside">
+                  <li>All critical actions require explicit wallet signatures</li>
+                  <li>Server-side transaction checks confirm signer and account expectations</li>
+                  <li>Transaction verification includes retries to handle RPC propagation delay</li>
+                  <li>Fallback RPC candidates reduce false negatives on busy testnet windows</li>
+                </ul>
               </section>
             </div>
 

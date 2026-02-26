@@ -285,13 +285,28 @@ export default function EventsPage() {
           <div className="mb-12">
             <h1 className="text-4xl font-bold mb-4">Discover Events</h1>
             <p className="text-lg text-muted-foreground">Find and buy NFT tickets for your favorite events</p>
+            <Link
+              href="/whitepaper"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:border-accent transition"
+            >
+              Platform Whitepaper
+              <LinkIcon className="w-4 h-4" />
+            </Link>
           </div>
 
           <div className="mb-8 space-y-4">
             <form onSubmit={onCreateEvent} className="rounded-xl border border-border bg-card p-5 md:p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="text-xl font-semibold">AI Event Publisher</h2>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent">Smart On-Chain Create</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent">Smart On-Chain Create</span>
+                  <Link
+                    href="/whitepaper"
+                    className="text-xs px-2.5 py-1 rounded-full border border-border hover:border-accent transition"
+                  >
+                    Docs
+                  </Link>
+                </div>
               </div>
 
               <div className="grid gap-2 md:grid-cols-3">

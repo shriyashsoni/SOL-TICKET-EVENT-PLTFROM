@@ -6,6 +6,7 @@ import { useWallet } from '@/app/wallet-context';
 import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { ChevronRight, Shield, Zap } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ConnectWalletPage() {
   const router = useRouter();
@@ -117,6 +118,13 @@ export default function ConnectWalletPage() {
                 <li>• Transfer tickets to other Solana addresses</li>
                 <li>• Track your transaction history</li>
               </ul>
+              <Link
+                href="/whitepaper"
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:border-accent transition"
+              >
+                Read Whitepaper
+                <ChevronRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </div>
