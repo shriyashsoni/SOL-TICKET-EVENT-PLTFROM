@@ -79,7 +79,7 @@ pub fn handler(
     event.uri = uri;
     event.total_tickets = total_tickets;
     event.tickets_sold = 0;
-    event.price_in_lamports = price_in_sol.saturating_mul(1_000_000_000);
+    event.price_in_lamports = price_in_sol;
     event.created_at = Clock::get()?.unix_timestamp;
     event.event_active = true;
     event.merkle_tree = ctx.accounts.merkle_tree.key();

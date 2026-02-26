@@ -10,8 +10,20 @@ type ScrapedEvent = {
   date: string;
   location: string;
   category: string;
+  poster_url: string;
   source_url: string;
 };
+
+function normalizeImage(value: unknown): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return normalizeImage(value[0]);
+  if (typeof value === 'object') {
+    const maybeObject = value as { url?: string; contentUrl?: string };
+    return pickFirst(maybeObject.url, maybeObject.contentUrl);
+  }
+  return '';
+}
 
 function pickFirst(...values: Array<string | null | undefined>): string {
   for (const value of values) {
@@ -167,6 +179,7 @@ export async function POST(request: NextRequest) {
 
     const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
     const ogTitle = extractMeta(html, 'og:title');
+    const ogImage = extractMeta(html, 'og:image');
     const metaDescription = extractMeta(html, 'description');
     const ogDescription = extractMeta(html, 'og:description');
 
@@ -200,6 +213,10 @@ export async function POST(request: NextRequest) {
     );
 
     const category = inferCategory(`${name} ${description} ${location}`);
+    const poster_url = pickFirst(
+      normalizeImage(eventLd?.image),
+      ogImage
+    );
 
     const scraped: ScrapedEvent = {
       name,
@@ -207,6 +224,7 @@ export async function POST(request: NextRequest) {
       date,
       location,
       category,
+      poster_url,
       source_url: parsedUrl.toString(),
     };
 

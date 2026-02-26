@@ -4,6 +4,7 @@ import { clusterApiUrl, Connection, PublicKey } from '@solana/web3.js';
 
 const POST_EVENT_FEE_LAMPORTS = 100_000;
 const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
+const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
 
 async function hasValidPostFeeTransfer(signature: string, organizer: string, treasury: string): Promise<boolean> {
   try {
@@ -45,6 +46,48 @@ async function hasValidPostFeeTransfer(signature: string, organizer: string, tre
     }
 
     return false;
+  } catch {
+    return false;
+  }
+}
+
+async function hasValidCreateEventSignature(
+  signature: string,
+  organizer: string,
+  eventAccount?: string
+): Promise<boolean> {
+  try {
+    const connection = new Connection(process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'), 'confirmed');
+    const tx = await connection.getParsedTransaction(signature, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
+    });
+
+    if (!tx || tx.meta?.err) return false;
+
+    const programId = new PublicKey(PROGRAM_ID).toBase58();
+    const organizerKey = new PublicKey(organizer).toBase58();
+    const eventKey = eventAccount ? new PublicKey(eventAccount).toBase58() : null;
+
+    const keys = tx.transaction.message.accountKeys;
+    const hasSigner = keys.some((entry) => {
+      if (typeof entry === 'string') return false;
+      return entry.pubkey.toBase58() === organizerKey && entry.signer;
+    });
+
+    const hasProgram = tx.transaction.message.instructions.some((instruction) => {
+      if ('programId' in instruction) {
+        return instruction.programId.toBase58() === programId;
+      }
+      return false;
+    });
+
+    const hasEventAccount = !eventKey || keys.some((entry) => {
+      if (typeof entry === 'string') return entry === eventKey;
+      return entry.pubkey.toBase58() === eventKey;
+    });
+
+    return hasSigner && hasProgram && hasEventAccount;
   } catch {
     return false;
   }
@@ -114,6 +157,7 @@ export async function POST(request: NextRequest) {
       source_url,
       poster_url,
       post_fee_signature,
+      create_event_signature,
       organizer_wallet,
       organizer_name,
       event_account,
@@ -127,17 +171,19 @@ export async function POST(request: NextRequest) {
     }
 
     const treasury = process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY;
-    if (!post_fee_signature || typeof post_fee_signature !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Posting fee payment signature is required' },
-        { status: 400 }
-      );
+    let verified = false;
+
+    if (typeof create_event_signature === 'string' && create_event_signature.length > 0) {
+      verified = await hasValidCreateEventSignature(create_event_signature, organizer_wallet, event_account);
     }
 
-    const feePaid = await hasValidPostFeeTransfer(post_fee_signature, organizer_wallet, treasury);
-    if (!feePaid) {
+    if (!verified && typeof post_fee_signature === 'string' && post_fee_signature.length > 0) {
+      verified = await hasValidPostFeeTransfer(post_fee_signature, organizer_wallet, treasury);
+    }
+
+    if (!verified) {
       return NextResponse.json(
-        { success: false, error: 'Posting fee transaction not verified (need 0.0001 SOL transfer)' },
+        { success: false, error: 'On-chain event posting transaction not verified' },
         { status: 400 }
       );
     }

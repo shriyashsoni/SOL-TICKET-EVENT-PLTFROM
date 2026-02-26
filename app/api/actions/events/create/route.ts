@@ -18,7 +18,6 @@ import {
 
 const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
 const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
-const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
 
 type CreateEventPayload = {
   account?: string;
@@ -28,6 +27,31 @@ type CreateEventPayload = {
   totalTickets?: number;
   priceInSol?: number;
 };
+
+function encodeU64Seed(value: bigint): Buffer {
+  const out = Buffer.alloc(8);
+  out.writeBigUInt64LE(value, 0);
+  return out;
+}
+
+function decodeProgramState(data: Buffer): { totalEvents: bigint; treasury: PublicKey } {
+  const minLen = 8 + 1 + 32 + 8;
+  if (data.length < minLen) {
+    throw new Error('Invalid program state account');
+  }
+
+  const totalEventsOffset = 8 + 1 + 32;
+  const totalEvents = data.readBigUInt64LE(totalEventsOffset);
+
+  const treasuryOffset = 8 + 1 + 32 + 8 + 8;
+  if (data.length < treasuryOffset + 32) {
+    throw new Error('Invalid program state treasury');
+  }
+
+  const treasury = new PublicKey(data.subarray(treasuryOffset, treasuryOffset + 32));
+
+  return { totalEvents, treasury };
+}
 
 export function OPTIONS() {
   return optionsResponse();
@@ -71,9 +95,9 @@ export async function POST(request: NextRequest) {
     const symbol = body.symbol?.trim() ?? '';
     const uri = body.uri?.trim() ?? '';
     const totalTickets = BigInt(body.totalTickets ?? 0);
-    const priceInSol = BigInt(Math.round((body.priceInSol ?? 0) * 1_000_000_000));
+    const priceInLamports = BigInt(Math.round((body.priceInSol ?? 0) * 1_000_000_000));
 
-    if (!eventName || !symbol || !uri || totalTickets <= BigInt(0) || priceInSol <= BigInt(0)) {
+    if (!eventName || !symbol || !uri || totalTickets <= BigInt(0) || priceInLamports <= BigInt(0)) {
       return NextResponse.json(
         { error: 'Invalid create event parameters' },
         { status: 400, headers: ACTIONS_CORS_HEADERS }
@@ -81,19 +105,38 @@ export async function POST(request: NextRequest) {
     }
 
     const query = request.nextUrl.searchParams;
-    const programState = new PublicKey(
-      parsePublicKeyString(query.get('programState') ?? process.env.BLINK_PROGRAM_STATE ?? null, 'programState')
-    );
-    const eventAccount = new PublicKey(
-      parsePublicKeyString(query.get('eventAccount') ?? process.env.BLINK_EVENT_ACCOUNT ?? null, 'eventAccount')
-    );
-    const merkleTree = new PublicKey(
-      parsePublicKeyString(query.get('merkleTree') ?? process.env.BLINK_DEFAULT_MERKLE_TREE ?? null, 'merkleTree')
-    );
-    const treasury = new PublicKey(
-      parsePublicKeyString(query.get('treasury') ?? process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY, 'treasury')
-    );
     const programId = new PublicKey(PROGRAM_ID);
+    const connection = new Connection(DEFAULT_RPC, 'confirmed');
+
+    const [programState] = PublicKey.findProgramAddressSync(
+      [Buffer.from('program-state')],
+      programId
+    );
+
+    const programStateInfo = await connection.getAccountInfo(programState, 'confirmed');
+    if (!programStateInfo || !programStateInfo.owner.equals(programId)) {
+      return NextResponse.json(
+        { error: 'Program state not initialized on this network' },
+        { status: 400, headers: ACTIONS_CORS_HEADERS }
+      );
+    }
+
+    const parsedProgramState = decodeProgramState(programStateInfo.data);
+
+    const [eventAccount] = PublicKey.findProgramAddressSync(
+      [Buffer.from('event'), organizer.toBuffer(), encodeU64Seed(parsedProgramState.totalEvents)],
+      programId
+    );
+
+    const merkleTree = query.get('merkleTree')
+      ? new PublicKey(parsePublicKeyString(query.get('merkleTree'), 'merkleTree'))
+      : (process.env.BLINK_DEFAULT_MERKLE_TREE
+        ? new PublicKey(process.env.BLINK_DEFAULT_MERKLE_TREE)
+        : SystemProgram.programId);
+
+    const treasury = query.get('treasury')
+      ? new PublicKey(parsePublicKeyString(query.get('treasury'), 'treasury'))
+      : parsedProgramState.treasury;
 
     const instructionData = Buffer.concat([
       anchorDiscriminator('create_event'),
@@ -101,7 +144,7 @@ export async function POST(request: NextRequest) {
       encodeString(symbol),
       encodeString(uri),
       encodeU64LE(totalTickets),
-      encodeU64LE(priceInSol / BigInt(1_000_000_000)),
+      encodeU64LE(priceInLamports),
     ]);
 
     const createEventIx = new TransactionInstruction({
@@ -117,7 +160,6 @@ export async function POST(request: NextRequest) {
       data: instructionData,
     });
 
-    const connection = new Connection(DEFAULT_RPC, 'confirmed');
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
 
     const tx = new Transaction({
@@ -132,6 +174,8 @@ export async function POST(request: NextRequest) {
           requireAllSignatures: false,
           verifySignatures: false,
         }).toString('base64'),
+        eventAccount: eventAccount.toBase58(),
+        programState: programState.toBase58(),
         message: `Create event: ${eventName}`,
       },
       { headers: ACTIONS_CORS_HEADERS }

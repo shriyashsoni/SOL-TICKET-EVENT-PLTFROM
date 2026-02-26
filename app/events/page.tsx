@@ -2,7 +2,7 @@
 
 import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
-import { clusterApiUrl, Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { Transaction } from '@solana/web3.js';
 import { Search, Calendar, MapPin, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
@@ -53,6 +53,19 @@ export default function EventsPage() {
     total_tickets: '',
   });
 
+  const hasScrapedEventData = Boolean(
+    formState.name.trim() && formState.date.trim() && formState.location.trim()
+  );
+
+  const decodeTx = (base64: string) => {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return Transaction.from(bytes);
+  };
+
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -80,6 +93,10 @@ export default function EventsPage() {
         throw new Error('Connect wallet first to post an event.');
       }
 
+      if (!hasScrapedEventData) {
+        throw new Error('Use AI Scrape first so event details are auto-filled.');
+      }
+
       const wallet = (window as Window & {
         solana?: {
           signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string | Uint8Array }>;
@@ -90,32 +107,35 @@ export default function EventsPage() {
         throw new Error('Wallet does not support transaction signing.');
       }
 
-      const rpcUrl = network === 'mainnet'
-        ? 'https://api.mainnet-beta.solana.com'
-        : clusterApiUrl('testnet');
-      const connection = new Connection(rpcUrl, 'confirmed');
-      const organizerPubkey = new PublicKey(publicKey);
-      const treasuryPubkey = new PublicKey(
-        process.env.NEXT_PUBLIC_BLINK_EVENT_TREASURY ?? '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ'
-      );
+      const derivedSymbol = formState.name
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 6) || 'EVNT';
+      const metadataUri = formState.source_url || formState.poster_url || 'https://example.com';
 
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      const feeTx = new Transaction({
-        feePayer: organizerPubkey,
-        blockhash,
-        lastValidBlockHeight,
-      }).add(
-        SystemProgram.transfer({
-          fromPubkey: organizerPubkey,
-          toPubkey: treasuryPubkey,
-          lamports: 100_000,
-        })
-      );
+      const actionResponse = await fetch('/api/actions/events/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account: publicKey,
+          eventName: formState.name,
+          symbol: derivedSymbol,
+          uri: metadataUri,
+          totalTickets: Number(formState.total_tickets),
+          priceInSol: Number(formState.price_sol),
+        }),
+      });
 
-      const feeResult = await wallet.signAndSendTransaction(feeTx);
-      const postFeeSignature = typeof feeResult.signature === 'string'
-        ? feeResult.signature
-        : Array.from(feeResult.signature)
+      const actionPayload = await actionResponse.json();
+      if (!actionResponse.ok || !actionPayload.transaction) {
+        throw new Error(actionPayload.error || 'Failed to build on-chain create event transaction');
+      }
+
+      const createTx = decodeTx(actionPayload.transaction as string);
+      const createResult = await wallet.signAndSendTransaction(createTx);
+      const createEventSignature = typeof createResult.signature === 'string'
+        ? createResult.signature
+        : Array.from(createResult.signature)
             .map((value: number) => value.toString(16).padStart(2, '0'))
             .join('');
 
@@ -129,7 +149,8 @@ export default function EventsPage() {
           total_tickets: Number(formState.total_tickets),
           organizer_wallet: publicKey,
           organizer_name: organizerName || 'Anonymous',
-          post_fee_signature: postFeeSignature,
+          event_account: actionPayload.eventAccount || null,
+          create_event_signature: createEventSignature,
         }),
       });
 
@@ -150,7 +171,7 @@ export default function EventsPage() {
         price_sol: '',
         total_tickets: '',
       });
-      setSubmitMessage('Event posted successfully and is visible to all users. Posting fee paid: 0.0001 SOL.');
+      setSubmitMessage('Event created on-chain and posted successfully. Posting fee (0.0001 SOL) was charged by smart contract.');
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : 'Failed to post event');
     } finally {
@@ -187,6 +208,7 @@ export default function EventsPage() {
         date: data.date || prev.date,
         location: data.location || prev.location,
         category: data.category || prev.category,
+        poster_url: data.poster_url || prev.poster_url,
       }));
 
       setScrapeMessage(payload.message || 'Event details generated from link.');
@@ -241,39 +263,38 @@ export default function EventsPage() {
               {scrapeMessage && <p className="text-sm text-muted-foreground">{scrapeMessage}</p>}
               <div className="grid gap-3 md:grid-cols-2">
                 <input
-                  type="url"
-                  placeholder="Poster photo URL"
+                  placeholder="Poster URL (auto-filled)"
                   value={formState.poster_url}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, poster_url: e.target.value }))}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md md:col-span-2"
+                  readOnly
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md md:col-span-2 text-muted-foreground"
                 />
                 <input
                   required
-                  placeholder="Event name"
+                  placeholder="Event name (auto-filled)"
                   value={formState.name}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                  readOnly
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-muted-foreground"
                 />
                 <input
                   required
-                  placeholder="Location"
+                  placeholder="Location (auto-filled)"
                   value={formState.location}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, location: e.target.value }))}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                  readOnly
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-muted-foreground"
                 />
                 <input
                   required
                   type="date"
                   value={formState.date}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, date: e.target.value }))}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                  readOnly
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-muted-foreground"
                 />
                 <input
                   required
                   type="number"
                   min="0.01"
                   step="0.01"
-                  placeholder="Ticket price (SOL)"
+                  placeholder="Ticket price (SOL) - enter"
                   value={formState.price_sol}
                   onChange={(e) => setFormState((prev) => ({ ...prev, price_sol: e.target.value }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md"
@@ -282,32 +303,38 @@ export default function EventsPage() {
                   required
                   type="number"
                   min="1"
-                  placeholder="Total tickets"
+                  placeholder="Total tickets (size) - enter"
                   value={formState.total_tickets}
                   onChange={(e) => setFormState((prev) => ({ ...prev, total_tickets: e.target.value }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-md"
                 />
                 <input
-                  placeholder="Category"
+                  placeholder="Category (auto-filled)"
                   value={formState.category}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-md"
+                  readOnly
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-muted-foreground"
                 />
               </div>
+              {formState.poster_url && (
+                <div className="rounded-md border border-border bg-muted/30 p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={formState.poster_url} alt="Scraped poster" className="h-40 w-full rounded object-cover" />
+                </div>
+              )}
               <textarea
-                placeholder="Description"
+                placeholder="Description (auto-filled)"
                 value={formState.description}
-                onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-md min-h-24"
+                readOnly
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md min-h-24 text-muted-foreground"
               />
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground">Posting fee: 0.0001 SOL. Connected wallet is required and charged on submit.</p>
+                <p className="text-xs text-muted-foreground">Flow: paste link → AI fills event data → enter price & size → pay 0.0001 SOL → post.</p>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !hasScrapedEventData}
                   className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-70"
                 >
-                  {submitting ? 'Posting...' : 'Post Event'}
+                  {submitting ? 'Paying & Posting...' : 'Pay & Post Event'}
                 </button>
               </div>
               {submitMessage && <p className="text-sm text-muted-foreground">{submitMessage}</p>}

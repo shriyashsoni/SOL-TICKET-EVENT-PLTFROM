@@ -47,17 +47,22 @@ Flow:
 1. Go to `Events` page.
 2. In `Post an Event`, paste an event page URL.
 3. Click `AI Scrape`.
-4. Review/edit the generated fields (name, description, date, location, category).
-5. Set ticket price and total tickets.
+4. Event fields are auto-filled into form boxes (name, date, location, category, description, poster).
+5. Enter only ticket **price** and **total tickets (size)**.
 6. Click `Post Event`.
 
 ### Posting Fee
 
 - Event posting requires a **0.0001 SOL** fee.
-- On submit, the app creates a wallet-signed transfer to treasury.
-- Backend verifies the on-chain transfer signature before saving event.
-- Smart contract now also enforces posting fee inside `create_event` instruction.
+- On submit, the app builds `create_event` transaction and wallet signs/sends it.
+- Smart contract enforces posting fee inside `create_event` instruction.
 - Contract expects `treasury` account equal to `program_state.treasury`.
+
+### Fully On-Chain Post
+
+- Event post flow now runs on-chain first, then saves event in app database.
+- `/api/actions/events/create` auto-derives `program_state` PDA and next `event` PDA.
+- User inputs only ticket `price` and `total tickets (size)` after AI scrape auto-fill.
 
 ### Poster Photo URL
 

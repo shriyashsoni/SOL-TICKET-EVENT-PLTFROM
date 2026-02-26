@@ -29,10 +29,21 @@ type TxRecord = {
   signature: string;
 };
 
+type PostedEventRecord = {
+  id: string;
+  name: string;
+  date: string;
+  price_sol: number;
+  total_tickets: number;
+  available_tickets: number;
+  organizer_wallet: string;
+};
+
 export default function DashboardPage() {
   const { connected, publicKey, disconnectWallet, network, balance, switchNetwork, refreshBalance } = useWallet();
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
+  const [postedEvents, setPostedEvents] = useState<PostedEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -49,20 +60,27 @@ export default function DashboardPage() {
       try {
         await refreshBalance();
 
-        const [ticketsRes, txRes] = await Promise.all([
+        const [ticketsRes, txRes, eventsRes] = await Promise.all([
           fetch(`/api/tickets?publicKey=${publicKey}`),
           fetch(`/api/transactions?publicKey=${publicKey}&limit=10`),
+          fetch('/api/events'),
         ]);
 
         const ticketsPayload = await ticketsRes.json();
         const txPayload = await txRes.json();
+        const eventsPayload = await eventsRes.json();
 
         setTickets(ticketsPayload.data ?? []);
         setTransactions(txPayload.data ?? []);
+        const myEvents = (eventsPayload.data ?? []).filter(
+          (event: PostedEventRecord) => event.organizer_wallet === publicKey
+        );
+        setPostedEvents(myEvents);
       } catch (error) {
         console.error('Failed to load dashboard data', error);
         setTickets([]);
         setTransactions([]);
+        setPostedEvents([]);
       } finally {
         setLoading(false);
       }
@@ -77,6 +95,12 @@ export default function DashboardPage() {
       .reduce((acc, tx) => acc + tx.amount, 0)
       .toFixed(2);
   }, [transactions]);
+
+  const postedTicketsSold = useMemo(() => {
+    return postedEvents.reduce((sum, event) => {
+      return sum + Math.max(0, event.total_tickets - event.available_tickets);
+    }, 0);
+  }, [postedEvents]);
 
   if (!connected) {
     return (
@@ -174,7 +198,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 mb-8 md:mb-12">
+          <div className="grid md:grid-cols-5 gap-4 mb-8 md:mb-12">
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-2">Active Tickets</p>
               <p className="text-3xl font-bold text-accent">{tickets.length}</p>
@@ -187,6 +211,46 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground mb-2">Transactions</p>
               <p className="text-3xl font-bold text-accent">{transactions.length}</p>
             </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Events Posted</p>
+              <p className="text-3xl font-bold text-accent">{postedEvents.length}</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Tickets Sold (Your Events)</p>
+              <p className="text-3xl font-bold text-accent">{postedTicketsSold}</p>
+            </div>
+          </div>
+
+          <div className="mb-8 md:mb-12">
+            <h2 className="text-3xl font-bold mb-6">My Posted Events</h2>
+
+            {loading ? (
+              <div className="text-muted-foreground">Loading events...</div>
+            ) : postedEvents.length === 0 ? (
+              <div className="bg-card border border-border rounded-lg p-8 text-center">
+                <p className="text-muted-foreground">No events posted yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {postedEvents.map((event) => {
+                  const sold = Math.max(0, event.total_tickets - event.available_tickets);
+                  return (
+                    <div
+                      key={event.id}
+                      className="bg-card border border-border rounded-lg p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
+                      <div>
+                        <p className="text-lg font-semibold text-foreground">{event.name}</p>
+                        <p className="text-sm text-muted-foreground">{event.date}</p>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {sold}/{event.total_tickets} sold · {event.price_sol} SOL
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="mb-8 md:mb-12">
