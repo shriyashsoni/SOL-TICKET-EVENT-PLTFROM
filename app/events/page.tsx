@@ -39,6 +39,7 @@ export default function EventsPage() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [scrapeMessage, setScrapeMessage] = useState('');
   const [scraping, setScraping] = useState(false);
+  const [autoPosting, setAutoPosting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [formState, setFormState] = useState({
@@ -56,6 +57,7 @@ export default function EventsPage() {
   const hasScrapedEventData = Boolean(
     formState.name.trim() && formState.date.trim() && formState.location.trim()
   );
+  const hasPricingData = Boolean(formState.price_sol.trim() && formState.total_tickets.trim());
 
   const decodeTx = (base64: string) => {
     const binary = atob(base64);
@@ -83,95 +85,99 @@ export default function EventsPage() {
     loadEvents();
   }, []);
 
+  const createEventFromForm = async (activeFormState: typeof formState) => {
+    if (!publicKey) {
+      throw new Error('Connect wallet first to post an event.');
+    }
+
+    const wallet = (window as Window & {
+      solana?: {
+        signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string | Uint8Array }>;
+      };
+    }).solana;
+
+    if (!wallet?.signAndSendTransaction) {
+      throw new Error('Wallet does not support transaction signing.');
+    }
+
+    if (!activeFormState.name.trim() || !activeFormState.date.trim() || !activeFormState.location.trim()) {
+      throw new Error('Use AI Scrape first so event details are auto-filled.');
+    }
+
+    const derivedSymbol = activeFormState.name
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .slice(0, 6) || 'EVNT';
+    const metadataUri = activeFormState.source_url || activeFormState.poster_url || 'https://example.com';
+
+    const actionResponse = await fetch('/api/actions/events/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account: publicKey,
+        eventName: activeFormState.name,
+        symbol: derivedSymbol,
+        uri: metadataUri,
+        totalTickets: Number(activeFormState.total_tickets),
+        priceInSol: Number(activeFormState.price_sol),
+      }),
+    });
+
+    const actionPayload = await actionResponse.json();
+    if (!actionResponse.ok || !actionPayload.transaction) {
+      throw new Error(actionPayload.error || 'Failed to build on-chain create event transaction');
+    }
+
+    const createTx = decodeTx(actionPayload.transaction as string);
+    const createResult = await wallet.signAndSendTransaction(createTx);
+    const createEventSignature = typeof createResult.signature === 'string'
+      ? createResult.signature
+      : Array.from(createResult.signature)
+          .map((value: number) => value.toString(16).padStart(2, '0'))
+          .join('');
+
+    const organizerName = typeof window !== 'undefined' ? localStorage.getItem('blink_user_name') : null;
+    const response = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...activeFormState,
+        price_sol: Number(activeFormState.price_sol),
+        total_tickets: Number(activeFormState.total_tickets),
+        organizer_wallet: publicKey,
+        organizer_name: organizerName || 'Anonymous',
+        event_account: actionPayload.eventAccount || null,
+        create_event_signature: createEventSignature,
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Failed to create event');
+    }
+
+    setEvents((prev) => [payload.data, ...prev]);
+    setFormState({
+      source_url: '',
+      poster_url: '',
+      name: '',
+      date: '',
+      location: '',
+      category: 'General',
+      description: '',
+      price_sol: '',
+      total_tickets: '',
+    });
+  };
+
   const onCreateEvent = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     setSubmitMessage('');
 
     try {
-      if (!publicKey) {
-        throw new Error('Connect wallet first to post an event.');
-      }
-
-      if (!hasScrapedEventData) {
-        throw new Error('Use AI Scrape first so event details are auto-filled.');
-      }
-
-      const wallet = (window as Window & {
-        solana?: {
-          signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string | Uint8Array }>;
-        };
-      }).solana;
-
-      if (!wallet?.signAndSendTransaction) {
-        throw new Error('Wallet does not support transaction signing.');
-      }
-
-      const derivedSymbol = formState.name
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .toUpperCase()
-        .slice(0, 6) || 'EVNT';
-      const metadataUri = formState.source_url || formState.poster_url || 'https://example.com';
-
-      const actionResponse = await fetch('/api/actions/events/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          account: publicKey,
-          eventName: formState.name,
-          symbol: derivedSymbol,
-          uri: metadataUri,
-          totalTickets: Number(formState.total_tickets),
-          priceInSol: Number(formState.price_sol),
-        }),
-      });
-
-      const actionPayload = await actionResponse.json();
-      if (!actionResponse.ok || !actionPayload.transaction) {
-        throw new Error(actionPayload.error || 'Failed to build on-chain create event transaction');
-      }
-
-      const createTx = decodeTx(actionPayload.transaction as string);
-      const createResult = await wallet.signAndSendTransaction(createTx);
-      const createEventSignature = typeof createResult.signature === 'string'
-        ? createResult.signature
-        : Array.from(createResult.signature)
-            .map((value: number) => value.toString(16).padStart(2, '0'))
-            .join('');
-
-      const organizerName = typeof window !== 'undefined' ? localStorage.getItem('blink_user_name') : null;
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formState,
-          price_sol: Number(formState.price_sol),
-          total_tickets: Number(formState.total_tickets),
-          organizer_wallet: publicKey,
-          organizer_name: organizerName || 'Anonymous',
-          event_account: actionPayload.eventAccount || null,
-          create_event_signature: createEventSignature,
-        }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || 'Failed to create event');
-      }
-
-      setEvents((prev) => [payload.data, ...prev]);
-      setFormState({
-        source_url: '',
-        poster_url: '',
-        name: '',
-        date: '',
-        location: '',
-        category: 'General',
-        description: '',
-        price_sol: '',
-        total_tickets: '',
-      });
-      setSubmitMessage('Event created on-chain and posted successfully. Posting fee (0.0001 SOL) was charged by smart contract.');
+      await createEventFromForm(formState);
+      setSubmitMessage('Event created on-chain and posted successfully. Posting fee (0.0001 SOL) charged by smart contract.');
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : 'Failed to post event');
     } finally {
@@ -219,6 +225,49 @@ export default function EventsPage() {
     }
   };
 
+  const onScrapeAndCreate = async () => {
+    if (!formState.source_url.trim()) {
+      setScrapeMessage('Enter an event link first.');
+      return;
+    }
+
+    setAutoPosting(true);
+    setSubmitMessage('');
+    setScrapeMessage('');
+
+    try {
+      const response = await fetch('/api/events/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: formState.source_url }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to scrape event link');
+      }
+
+      const data = payload.data ?? {};
+      const mergedFormState = {
+        ...formState,
+        name: data.name || formState.name,
+        description: data.description || formState.description,
+        date: data.date || formState.date,
+        location: data.location || formState.location,
+        category: data.category || formState.category,
+        poster_url: data.poster_url || formState.poster_url,
+      };
+
+      setFormState(mergedFormState);
+      await createEventFromForm(mergedFormState);
+      setSubmitMessage('Link scraped and event auto-created on-chain successfully.');
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : 'Auto create failed');
+    } finally {
+      setAutoPosting(false);
+    }
+  };
+
   const filteredEvents = useMemo(() => {
     return events.filter((event: EventRecord) => {
       const matchesSearch =
@@ -240,8 +289,30 @@ export default function EventsPage() {
           </div>
 
           <div className="mb-8 space-y-4">
-            <form onSubmit={onCreateEvent} className="rounded-lg border border-border bg-card p-4 space-y-3">
-              <h2 className="text-lg font-semibold">Post an Event</h2>
+            <form onSubmit={onCreateEvent} className="rounded-xl border border-border bg-card p-5 md:p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-xl font-semibold">AI Event Publisher</h2>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent">Smart On-Chain Create</span>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-3">
+                <div className={`rounded-md border px-3 py-2 text-xs ${formState.source_url.trim() ? 'border-accent text-accent' : 'border-border text-muted-foreground'}`}>
+                  1. Add Event Link
+                </div>
+                <div className={`rounded-md border px-3 py-2 text-xs ${hasScrapedEventData ? 'border-accent text-accent' : 'border-border text-muted-foreground'}`}>
+                  2. AI Scrape Details
+                </div>
+                <div className={`rounded-md border px-3 py-2 text-xs ${hasPricingData ? 'border-accent text-accent' : 'border-border text-muted-foreground'}`}>
+                  3. Set Price + Size
+                </div>
+              </div>
+
+              {!publicKey && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  Connect wallet before creating event on-chain.
+                </div>
+              )}
+
               <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                 <input
                   type="url"
@@ -253,20 +324,30 @@ export default function EventsPage() {
                 <button
                   type="button"
                   onClick={onScrapeFromLink}
-                  disabled={scraping}
+                  disabled={scraping || autoPosting}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-70 inline-flex items-center gap-2"
                 >
                   {scraping ? 'Scraping...' : 'AI Scrape'}
                   {!scraping && <Sparkles className="w-4 h-4" />}
                 </button>
               </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onScrapeAndCreate}
+                  disabled={autoPosting || scraping || !formState.price_sol || !formState.total_tickets}
+                  className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-70"
+                >
+                  {autoPosting ? 'Scraping + Creating...' : 'Scrape + Auto Create'}
+                </button>
+              </div>
               {scrapeMessage && <p className="text-sm text-muted-foreground">{scrapeMessage}</p>}
               <div className="grid gap-3 md:grid-cols-2">
                 <input
-                  placeholder="Poster URL (auto-filled)"
+                  placeholder="Poster URL (auto-filled, editable)"
                   value={formState.poster_url}
-                  readOnly
-                  className="w-full px-3 py-2 bg-muted border border-border rounded-md md:col-span-2 text-muted-foreground"
+                  onChange={(e) => setFormState((prev) => ({ ...prev, poster_url: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md md:col-span-2"
                 />
                 <input
                   required
@@ -321,6 +402,21 @@ export default function EventsPage() {
                   <img src={formState.poster_url} alt="Scraped poster" className="h-40 w-full rounded object-cover" />
                 </div>
               )}
+
+              <div className="rounded-md border border-border bg-background/60 p-3">
+                <p className="text-xs text-muted-foreground mb-2">Live Event Preview</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{formState.name || 'Event title will appear here'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{formState.location || 'Event location'} · {formState.date || 'Event date'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-accent">{formState.price_sol || '0'} SOL</p>
+                    <p className="text-xs text-muted-foreground">{formState.total_tickets || '0'} tickets</p>
+                  </div>
+                </div>
+              </div>
+
               <textarea
                 placeholder="Description (auto-filled)"
                 value={formState.description}
@@ -328,10 +424,10 @@ export default function EventsPage() {
                 className="w-full px-3 py-2 bg-muted border border-border rounded-md min-h-24 text-muted-foreground"
               />
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground">Flow: paste link → AI fills event data → enter price & size → pay 0.0001 SOL → post.</p>
+                <p className="text-xs text-muted-foreground">Paste link → scrape data → set price & size → create on-chain (or use one-click auto create).</p>
                 <button
                   type="submit"
-                  disabled={submitting || !hasScrapedEventData}
+                  disabled={submitting || autoPosting || !hasScrapedEventData || !hasPricingData || !publicKey}
                   className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-70"
                 >
                   {submitting ? 'Paying & Posting...' : 'Pay & Post Event'}

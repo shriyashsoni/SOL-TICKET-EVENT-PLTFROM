@@ -37,6 +37,9 @@ type PostedEventRecord = {
   total_tickets: number;
   available_tickets: number;
   organizer_wallet: string;
+  gross_profit_sol?: number;
+  withdrawn_profit_sol?: number;
+  available_profit_sol?: number;
 };
 
 export default function DashboardPage() {
@@ -44,6 +47,8 @@ export default function DashboardPage() {
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [postedEvents, setPostedEvents] = useState<PostedEventRecord[]>([]);
+  const [withdrawingEventId, setWithdrawingEventId] = useState<string | null>(null);
+  const [withdrawMessage, setWithdrawMessage] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -102,6 +107,53 @@ export default function DashboardPage() {
     }, 0);
   }, [postedEvents]);
 
+  const totalEventProfit = useMemo(() => {
+    return postedEvents.reduce((sum, event) => sum + Number(event.gross_profit_sol ?? 0), 0);
+  }, [postedEvents]);
+
+  const totalAvailableProfit = useMemo(() => {
+    return postedEvents.reduce((sum, event) => sum + Number(event.available_profit_sol ?? 0), 0);
+  }, [postedEvents]);
+
+  const onWithdrawProfit = async (eventId: string) => {
+    if (!publicKey) return;
+
+    setWithdrawingEventId(eventId);
+    setWithdrawMessage('');
+
+    try {
+      const response = await fetch('/api/events/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          organizerWallet: publicKey,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to withdraw profit');
+      }
+
+      setPostedEvents((prev) => prev.map((event) => {
+        if (event.id !== eventId) return event;
+        const withdrawnNow = Number(payload.data?.withdrawnNowSol ?? 0);
+        return {
+          ...event,
+          withdrawn_profit_sol: Number(event.withdrawn_profit_sol ?? 0) + withdrawnNow,
+          available_profit_sol: Math.max(0, Number(event.available_profit_sol ?? 0) - withdrawnNow),
+        };
+      }));
+
+      setWithdrawMessage(`Withdraw successful: ${Number(payload.data?.withdrawnNowSol ?? 0).toFixed(4)} SOL`);
+    } catch (error) {
+      setWithdrawMessage(error instanceof Error ? error.message : 'Withdraw failed');
+    } finally {
+      setWithdrawingEventId(null);
+    }
+  };
+
   if (!connected) {
     return (
       <>
@@ -149,6 +201,27 @@ export default function DashboardPage() {
                 Disconnect
               </button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mb-8">
+            <Link
+              href="/events"
+              className="px-4 py-2 rounded-lg bg-accent text-accent-foreground font-medium hover:opacity-90 transition"
+            >
+              Buy Tickets
+            </Link>
+            <Link
+              href="/events"
+              className="px-4 py-2 rounded-lg border border-border bg-card text-foreground font-medium hover:border-accent transition"
+            >
+              Publish Event
+            </Link>
+            <Link
+              href="/events"
+              className="px-4 py-2 rounded-lg border border-border bg-card text-foreground font-medium hover:border-accent transition"
+            >
+              View Events
+            </Link>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
@@ -221,6 +294,21 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Gross Event Profit</p>
+              <p className="text-3xl font-bold text-accent">{totalEventProfit.toFixed(4)} SOL</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Available To Withdraw</p>
+              <p className="text-3xl font-bold text-accent">{totalAvailableProfit.toFixed(4)} SOL</p>
+            </div>
+          </div>
+
+          {withdrawMessage && (
+            <div className="mb-8 text-sm text-muted-foreground">{withdrawMessage}</div>
+          )}
+
           <div className="mb-8 md:mb-12">
             <h2 className="text-3xl font-bold mb-6">My Posted Events</h2>
 
@@ -242,9 +330,20 @@ export default function DashboardPage() {
                       <div>
                         <p className="text-lg font-semibold text-foreground">{event.name}</p>
                         <p className="text-sm text-muted-foreground">{event.date}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Profit: {Number(event.gross_profit_sol ?? 0).toFixed(4)} SOL ·
+                          Available: {Number(event.available_profit_sol ?? 0).toFixed(4)} SOL
+                        </p>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {sold}/{event.total_tickets} sold · {event.price_sol} SOL
+                      <div className="text-sm text-muted-foreground flex items-center gap-3">
+                        <span>{sold}/{event.total_tickets} sold · {event.price_sol} SOL</span>
+                        <button
+                          onClick={() => onWithdrawProfit(event.id)}
+                          disabled={withdrawingEventId === event.id || Number(event.available_profit_sol ?? 0) <= 0}
+                          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                        >
+                          {withdrawingEventId === event.id ? 'Withdrawing...' : 'Withdraw Profit'}
+                        </button>
                       </div>
                     </div>
                   );

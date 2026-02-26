@@ -103,8 +103,20 @@ export async function GET(request: NextRequest) {
 
     if (id) {
       const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [id]);
+      const enriched = event
+        ? {
+            ...event,
+            tickets_sold: Math.max(0, Number(event.total_tickets) - Number(event.available_tickets)),
+            gross_profit_sol:
+              Math.max(0, Number(event.total_tickets) - Number(event.available_tickets)) * Number(event.price_sol),
+            withdrawn_profit_sol: Number(event.withdrawn_profit_sol ?? 0),
+            available_profit_sol:
+              Math.max(0, Number(event.total_tickets) - Number(event.available_tickets)) * Number(event.price_sol)
+              - Number(event.withdrawn_profit_sol ?? 0),
+          }
+        : null;
       return NextResponse.json({
-        data: event,
+        data: enriched,
         success: true,
       });
     }
@@ -129,10 +141,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const enriched = filtered.map((event) => {
+      const ticketsSold = Math.max(0, Number(event.total_tickets) - Number(event.available_tickets));
+      const grossProfit = ticketsSold * Number(event.price_sol);
+      const withdrawn = Number(event.withdrawn_profit_sol ?? 0);
+      return {
+        ...event,
+        tickets_sold: ticketsSold,
+        gross_profit_sol: grossProfit,
+        withdrawn_profit_sol: withdrawn,
+        available_profit_sol: Math.max(0, grossProfit - withdrawn),
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: filtered,
-      count: filtered.length,
+      data: enriched,
+      count: enriched.length,
     });
   } catch (error) {
     console.error('Error fetching events:', error);

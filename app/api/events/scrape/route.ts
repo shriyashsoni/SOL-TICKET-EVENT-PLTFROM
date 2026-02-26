@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 
 type ScrapePayload = {
   url?: string;
@@ -34,31 +35,20 @@ function pickFirst(...values: Array<string | null | undefined>): string {
   return '';
 }
 
-function extractMeta(content: string, key: string): string {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(
-    `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
-    'i'
-  );
-  const altPattern = new RegExp(
-    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,
-    'i'
-  );
-
-  return pickFirst(content.match(pattern)?.[1], content.match(altPattern)?.[1]);
+function extractMeta($: cheerio.CheerioAPI, key: string): string {
+  const exact = $(`meta[property="${key}"], meta[name="${key}"]`).first().attr('content');
+  const lower = $(`meta[property="${key.toLowerCase()}"], meta[name="${key.toLowerCase()}"]`).first().attr('content');
+  return pickFirst(exact, lower);
 }
 
-function parseJsonLd(html: string): any[] {
-  const scripts = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) ?? [];
+function parseJsonLd($: cheerio.CheerioAPI): any[] {
+  const scripts = $('script[type="application/ld+json"]');
   const result: any[] = [];
 
-  for (const script of scripts) {
-    const jsonText = script
-      .replace(/<script[^>]*>/i, '')
-      .replace(/<\/script>/i, '')
-      .trim();
+  scripts.each((_, element) => {
+    const jsonText = $(element).contents().text().trim();
 
-    if (!jsonText) continue;
+    if (!jsonText) return;
 
     try {
       const parsed = JSON.parse(jsonText);
@@ -68,9 +58,9 @@ function parseJsonLd(html: string): any[] {
         result.push(parsed);
       }
     } catch {
-      continue;
+      return;
     }
-  }
+  });
 
   return result;
 }
@@ -124,17 +114,9 @@ function toDateOnly(input?: string): string {
   return '';
 }
 
-function stripHtml(input: string): string {
-  return input
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+function textSnapshot($: cheerio.CheerioAPI): string {
+  $('script,style,noscript').remove();
+  return $('body').text().replace(/\s+/g, ' ').trim();
 }
 
 export async function POST(request: NextRequest) {
@@ -174,16 +156,18 @@ export async function POST(request: NextRequest) {
     }
 
     const html = await response.text();
-    const jsonLd = parseJsonLd(html);
+    const $ = cheerio.load(html);
+
+    const jsonLd = parseJsonLd($);
     const eventLd = findEventObject(jsonLd);
 
-    const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
-    const ogTitle = extractMeta(html, 'og:title');
-    const ogImage = extractMeta(html, 'og:image');
-    const metaDescription = extractMeta(html, 'description');
-    const ogDescription = extractMeta(html, 'og:description');
+    const titleTag = pickFirst($('title').first().text());
+    const ogTitle = extractMeta($, 'og:title');
+    const ogImage = extractMeta($, 'og:image');
+    const metaDescription = extractMeta($, 'description');
+    const ogDescription = extractMeta($, 'og:description');
 
-    const textSnapshot = stripHtml(html).slice(0, 2000);
+    const pageText = textSnapshot($).slice(0, 2000);
 
     const name = pickFirst(
       eventLd?.name,
@@ -196,7 +180,7 @@ export async function POST(request: NextRequest) {
       eventLd?.description,
       ogDescription,
       metaDescription,
-      textSnapshot.slice(0, 240)
+      pageText.slice(0, 240)
     );
 
     const location = pickFirst(

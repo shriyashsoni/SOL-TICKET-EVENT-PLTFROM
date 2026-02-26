@@ -2,7 +2,8 @@
 
 import { Moon, Sun, Wallet, Menu, X, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@/app/providers';
 import { useWallet } from '@/app/wallet-context';
 
@@ -10,6 +11,15 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { connected, publicKey, disconnectWallet } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!connected) return;
+    if (pathname === '/connect-wallet') {
+      router.replace('/dashboard');
+    }
+  }, [connected, pathname, router]);
 
   const truncateAddress = (address: string | null) => {
     if (!address) return '';
@@ -35,9 +45,6 @@ export function Header() {
             </Link>
             <Link href="/events" className="text-foreground hover:text-accent transition">
               Events
-            </Link>
-            <Link href="/dashboard" className="text-foreground hover:text-accent transition">
-              Dashboard
             </Link>
             <Link href="/about" className="text-foreground hover:text-accent transition">
               About
@@ -111,13 +118,6 @@ export function Header() {
               onClick={() => setMobileOpen(false)}
             >
               Events
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-foreground hover:text-accent transition py-2"
-              onClick={() => setMobileOpen(false)}
-            >
-              Dashboard
             </Link>
             <Link
               href="/about"

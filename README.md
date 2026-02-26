@@ -71,10 +71,11 @@ Flow:
 
 Implemented endpoints and data:
 
-- `POST /api/events/scrape` extracts event metadata using page meta tags + JSON-LD (`Event`) when available.
+- `POST /api/events/scrape` extracts event metadata using **Cheerio** + page meta tags + JSON-LD (`Event`) when available.
 - `POST /api/events` now also accepts `source_url` and stores it with the event record.
 - `POST /api/events` also requires `post_fee_signature` and supports `poster_url`.
 - Events UI displays `Source link` on event cards when present.
+- Posting UI includes one-click **Scrape + Auto Create** (scrape link data and submit on-chain event creation in one action).
 
 ## Solana CLI Setup (Testnet)
 

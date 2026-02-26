@@ -14,6 +14,7 @@ export interface Event {
   price_usdc: number;
   total_tickets: number;
   available_tickets: number;
+  withdrawn_profit_sol?: number;
   organizer_wallet: string;
   organizer_name?: string;
   event_account?: string;
@@ -138,12 +139,28 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       price_usdc,
       total_tickets,
       available_tickets,
+      withdrawn_profit_sol: 0,
       organizer_wallet,
       organizer_name,
       event_account,
       created_at: new Date().toISOString(),
     });
     return { lastID: database.events.length, changes: 1 };
+  }
+
+  if (query.includes('UPDATE events SET withdrawn_profit_sol = ? WHERE id = ?')) {
+    const [withdrawn_profit_sol, id] = params;
+    const index = database.events.findIndex((event) => event.id === id);
+    if (index === -1) {
+      return { lastID: 0, changes: 0 };
+    }
+
+    database.events[index] = {
+      ...database.events[index],
+      withdrawn_profit_sol: Number(withdrawn_profit_sol) || 0,
+    };
+
+    return { lastID: index + 1, changes: 1 };
   }
 
   if (query.includes('INSERT INTO tickets')) {

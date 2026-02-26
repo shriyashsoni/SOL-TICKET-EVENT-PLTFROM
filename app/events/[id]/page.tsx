@@ -22,6 +22,8 @@ type EventDetail = {
   event_account?: string;
   total_tickets: number;
   available_tickets: number;
+  tickets_sold?: number;
+  gross_profit_sol?: number;
 };
 
 interface EventDetailPageProps {
@@ -62,6 +64,8 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
   }, [event]);
 
   const remainingTickets = event?.available_tickets ?? 0;
+  const soldTickets = event?.tickets_sold ?? ((event?.total_tickets ?? 0) - (event?.available_tickets ?? 0));
+  const grossProfit = event?.gross_profit_sol ?? (soldTickets * (event?.price_sol ?? 0));
 
   const decodeTx = (base64: string) => {
     const binary = atob(base64);
@@ -249,6 +253,8 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
                   </div>
 
                   <p className="text-sm text-muted-foreground">{remainingTickets.toLocaleString()} tickets remaining</p>
+                  <p className="text-sm text-muted-foreground">Tickets sold: {soldTickets.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Gross profit: {grossProfit.toFixed(4)} SOL</p>
 
                   {percentageSold > 90 && (
                     <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 flex items-start gap-3">
