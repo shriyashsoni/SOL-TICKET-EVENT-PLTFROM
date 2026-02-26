@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event } from '@/lib/db';
-import { Keypair } from '@solana/web3.js';
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +63,7 @@ export async function POST(request: NextRequest) {
       description,
       organizer_wallet,
       organizer_name,
+      event_account,
     } = body;
 
     if (!name || !date || !location || !price_sol || !total_tickets) {
@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     }
 
     const id = `event-${Date.now()}`;
-    const generatedEventAccount = Keypair.generate().publicKey.toBase58();
     const priceUsdc = Math.round(Number(price_sol) * 60);
 
     await dbRun(
@@ -92,7 +91,7 @@ export async function POST(request: NextRequest) {
         Number(total_tickets),
         organizer_wallet || 'guest',
         organizer_name || 'Anonymous',
-        generatedEventAccount,
+        event_account || null,
       ]
     );
 

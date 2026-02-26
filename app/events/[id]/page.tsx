@@ -122,7 +122,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
 
         lastSignature = signature;
 
-        await fetch('/api/tickets', {
+        const ticketResponse = await fetch('/api/tickets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -133,6 +133,11 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
             signature,
           }),
         });
+
+        const ticketPayload = await ticketResponse.json();
+        if (!ticketResponse.ok || !ticketPayload.success) {
+          throw new Error(ticketPayload.error ?? 'Ticket verification failed');
+        }
       }
 
       await refreshBalance();

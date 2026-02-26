@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event, type Ticket } from '@/lib/db';
+import { clusterApiUrl, Connection } from '@solana/web3.js';
+
+const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,11 +59,53 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!signature || typeof signature !== 'string') {
+        return NextResponse.json(
+          { success: false, error: 'Valid transaction signature is required' },
+          { status: 400 }
+        );
+      }
+
       const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [eventId]);
       if (!event) {
         return NextResponse.json(
           { success: false, error: 'Event not found' },
           { status: 404 }
+        );
+      }
+
+      const connection = new Connection(DEFAULT_RPC, 'confirmed');
+      const status = await connection.getSignatureStatus(signature, { searchTransactionHistory: true });
+      const confirmation = status.value;
+
+      if (!confirmation || confirmation.err) {
+        return NextResponse.json(
+          { success: false, error: 'Transaction verification failed on-chain' },
+          { status: 400 }
+        );
+      }
+
+      const confirmationState = confirmation.confirmationStatus;
+      if (confirmationState !== 'confirmed' && confirmationState !== 'finalized') {
+        return NextResponse.json(
+          { success: false, error: 'Transaction not confirmed yet. Please retry in a moment.' },
+          { status: 409 }
+        );
+      }
+
+      const parsedTx = await connection.getParsedTransaction(signature, {
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0,
+      });
+
+      const buyerSigned = parsedTx?.transaction.message.accountKeys.some(
+        (account) => account.signer && account.pubkey.toBase58() === publicKey
+      );
+
+      if (!buyerSigned) {
+        return NextResponse.json(
+          { success: false, error: 'Security verification failed: wallet signer mismatch' },
+          { status: 403 }
         );
       }
 
@@ -74,7 +119,7 @@ export async function POST(request: NextRequest) {
 
       await dbRun(
         'INSERT INTO transactions (id, type, event_id, user_wallet, amount_sol, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [`tx-${Date.now()}`, 'purchase', eventId, publicKey, paidSol, 'confirmed']
+        [`tx-${Date.now()}`, 'purchase', eventId, publicKey, paidSol, confirmationState]
       );
 
       return NextResponse.json({

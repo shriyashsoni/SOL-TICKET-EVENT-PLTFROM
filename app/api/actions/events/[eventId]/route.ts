@@ -101,7 +101,7 @@ export async function POST(
     const buyer = new PublicKey(parsePublicKeyString(body.account ?? null, 'account'));
 
     const searchParams = request.nextUrl.searchParams;
-    const eventAccount = tryParsePublicKey(
+    const eventAccountCandidate = tryParsePublicKey(
       searchParams.get('eventAccount') ?? event.event_account ?? process.env.BLINK_EVENT_ACCOUNT ?? null
     );
     const treasury =
@@ -110,6 +110,15 @@ export async function POST(
       ?? tryParsePublicKey(process.env.BLINK_EVENT_TREASURY)
       ?? new PublicKey(DEFAULT_TREASURY);
     const programId = new PublicKey(PROGRAM_ID);
+    const connection = new Connection(DEFAULT_RPC, 'confirmed');
+
+    let validatedEventAccount: PublicKey | null = null;
+    if (eventAccountCandidate) {
+      const accountInfo = await connection.getAccountInfo(eventAccountCandidate, 'confirmed');
+      if (accountInfo?.owner?.equals(programId)) {
+        validatedEventAccount = eventAccountCandidate;
+      }
+    }
 
     const lamports = BigInt(Math.round(event.price_sol * 1_000_000_000));
     if (lamports <= BigInt(0)) {
@@ -119,11 +128,11 @@ export async function POST(
       );
     }
 
-    const purchaseIx = eventAccount
+    const purchaseIx = validatedEventAccount
       ? new TransactionInstruction({
           programId,
           keys: [
-            { pubkey: eventAccount, isSigner: false, isWritable: true },
+            { pubkey: validatedEventAccount, isSigner: false, isWritable: true },
             { pubkey: buyer, isSigner: true, isWritable: true },
             { pubkey: treasury, isSigner: false, isWritable: true },
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
@@ -139,7 +148,6 @@ export async function POST(
           lamports: Number(lamports),
         });
 
-    const connection = new Connection(DEFAULT_RPC, 'confirmed');
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
 
     const tx = new Transaction({
@@ -154,7 +162,9 @@ export async function POST(
           requireAllSignatures: false,
           verifySignatures: false,
         }).toString('base64'),
-        message: `Buy 1 ticket for ${event.name}`,
+        message: validatedEventAccount
+          ? `Buy 1 ticket for ${event.name}`
+          : `Pay ${event.price_sol} SOL for ${event.name} (verified transfer fallback)`,
       },
       { headers: ACTIONS_CORS_HEADERS }
     );
