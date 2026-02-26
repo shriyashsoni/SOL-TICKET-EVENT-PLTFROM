@@ -38,6 +38,39 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
+## AI Event Posting (Link → Auto Fill)
+
+You can now post events from a single link and auto-fill event details.
+
+Flow:
+
+1. Go to `Events` page.
+2. In `Post an Event`, paste an event page URL.
+3. Click `AI Scrape`.
+4. Review/edit the generated fields (name, description, date, location, category).
+5. Set ticket price and total tickets.
+6. Click `Post Event`.
+
+### Posting Fee
+
+- Event posting requires a **0.0001 SOL** fee.
+- On submit, the app creates a wallet-signed transfer to treasury.
+- Backend verifies the on-chain transfer signature before saving event.
+- Smart contract now also enforces posting fee inside `create_event` instruction.
+- Contract expects `treasury` account equal to `program_state.treasury`.
+
+### Poster Photo URL
+
+- You can add a `Poster photo URL` while posting.
+- Poster image is shown in events list cards and event detail page.
+
+Implemented endpoints and data:
+
+- `POST /api/events/scrape` extracts event metadata using page meta tags + JSON-LD (`Event`) when available.
+- `POST /api/events` now also accepts `source_url` and stores it with the event record.
+- `POST /api/events` also requires `post_fee_signature` and supports `poster_url`.
+- Events UI displays `Source link` on event cards when present.
+
 ## Solana CLI Setup (Testnet)
 
 ```bash

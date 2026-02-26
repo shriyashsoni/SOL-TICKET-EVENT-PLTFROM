@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, system_instruction};
 use crate::state::{Event, ProgramState};
 use crate::ErrorCode;
+
+const EVENT_POST_FEE_LAMPORTS: u64 = 100_000;
 
 #[derive(Accounts)]
 #[instruction(event_name: String)]
@@ -21,6 +24,8 @@ pub struct CreateEvent<'info> {
     pub event: Account<'info, Event>,
     #[account(mut)]
     pub organizer: Signer<'info>,
+    #[account(mut, address = program_state.treasury)]
+    pub treasury: SystemAccount<'info>,
     /// Merkle tree for Compressed NFTs
     /// CHECK: validated by client / Bubblegum integration layer.
     pub merkle_tree: AccountInfo<'info>,
@@ -37,6 +42,19 @@ pub fn handler(
 ) -> Result<()> {
     let event = &mut ctx.accounts.event;
     let program_state = &mut ctx.accounts.program_state;
+
+    invoke(
+        &system_instruction::transfer(
+            &ctx.accounts.organizer.key(),
+            &ctx.accounts.treasury.key(),
+            EVENT_POST_FEE_LAMPORTS,
+        ),
+        &[
+            ctx.accounts.organizer.to_account_info(),
+            ctx.accounts.treasury.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+        ],
+    )?;
 
     require!(
         event_name.len() > 0 && event_name.len() <= Event::MAX_NAME_LENGTH,

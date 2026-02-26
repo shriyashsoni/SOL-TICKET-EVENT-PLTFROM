@@ -5,6 +5,8 @@ export interface Event {
   id: string;
   name: string;
   description: string;
+  source_url?: string;
+  poster_url?: string;
   location: string;
   date: string;
   category: string;
@@ -122,11 +124,13 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
   initializeDatabase();
 
   if (query.includes('INSERT INTO events')) {
-    const [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account] = params;
+    const [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account, source_url, poster_url] = params;
     database.events.push({
       id,
       name,
       description,
+      source_url,
+      poster_url,
       location,
       date,
       category,

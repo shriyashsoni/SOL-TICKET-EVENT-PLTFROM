@@ -14,6 +14,7 @@ type EventDetail = {
   date: string;
   location: string;
   description: string;
+  poster_url?: string;
   price_sol: number;
   category: string;
   organizer_wallet: string;
@@ -187,6 +188,14 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
           <div className="grid md:grid-cols-3 gap-8 mb-16">
             <div className="md:col-span-2">
               <div className="bg-gradient-to-br from-purple-600 to-blue-600 h-96 rounded-lg mb-8 relative overflow-hidden">
+                {event.poster_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={event.poster_url}
+                    alt={`${event.name} poster`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : null}
                 <div className="absolute inset-0 bg-black/30" />
                 <span className="absolute top-4 left-4 bg-accent text-accent-foreground px-4 py-2 rounded-full font-medium">
                   {event.category}

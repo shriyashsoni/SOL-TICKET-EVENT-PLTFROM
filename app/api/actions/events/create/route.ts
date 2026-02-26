@@ -18,6 +18,7 @@ import {
 
 const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
 const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
+const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
 
 type CreateEventPayload = {
   account?: string;
@@ -89,6 +90,9 @@ export async function POST(request: NextRequest) {
     const merkleTree = new PublicKey(
       parsePublicKeyString(query.get('merkleTree') ?? process.env.BLINK_DEFAULT_MERKLE_TREE ?? null, 'merkleTree')
     );
+    const treasury = new PublicKey(
+      parsePublicKeyString(query.get('treasury') ?? process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY, 'treasury')
+    );
     const programId = new PublicKey(PROGRAM_ID);
 
     const instructionData = Buffer.concat([
@@ -106,6 +110,7 @@ export async function POST(request: NextRequest) {
         { pubkey: programState, isSigner: false, isWritable: true },
         { pubkey: eventAccount, isSigner: false, isWritable: true },
         { pubkey: organizer, isSigner: true, isWritable: true },
+        { pubkey: treasury, isSigner: false, isWritable: true },
         { pubkey: merkleTree, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
