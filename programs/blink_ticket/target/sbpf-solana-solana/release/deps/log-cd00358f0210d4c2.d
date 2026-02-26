@@ -1,0 +1,10 @@
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\sbpf-solana-solana\release\deps\log-cd00358f0210d4c2.d: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\macros.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\serde.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\__private_api.rs
+
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\sbpf-solana-solana\release\deps\liblog-cd00358f0210d4c2.rlib: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\macros.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\serde.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\__private_api.rs
+
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\sbpf-solana-solana\release\deps\liblog-cd00358f0210d4c2.rmeta: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\macros.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\serde.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\__private_api.rs
+
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\lib.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\macros.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\serde.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\log-0.4.29\src\__private_api.rs:

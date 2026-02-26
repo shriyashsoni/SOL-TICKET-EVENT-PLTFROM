@@ -1,0 +1,1 @@
+create_event::CreateEvent<'_>: anchor_lang::Accounts<'_, _>

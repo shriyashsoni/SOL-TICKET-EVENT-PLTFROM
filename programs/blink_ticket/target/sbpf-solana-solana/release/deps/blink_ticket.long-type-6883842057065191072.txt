@@ -1,0 +1,1 @@
+initialize_program::InitializeProgram<'_>: anchor_lang::Accounts<'_, _>

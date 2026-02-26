@@ -1,0 +1,27 @@
+[package]
+name = "blink_ticket"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anchor-lang = "0.29.0"
+
+[lib]
+name = "blink_ticket"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+
+[profile.release]
+overflow-checks = true
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[profile.dev]
+overflow-checks = true

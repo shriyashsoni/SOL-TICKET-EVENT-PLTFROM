@@ -1,0 +1,10 @@
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\release\deps\thiserror-47ce420dadfd9f1f.d: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\aserror.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\display.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\provide.rs
+
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\release\deps\libthiserror-47ce420dadfd9f1f.rlib: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\aserror.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\display.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\provide.rs
+
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\release\deps\libthiserror-47ce420dadfd9f1f.rmeta: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\aserror.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\display.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\provide.rs
+
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\lib.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\aserror.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\display.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\src\provide.rs:
