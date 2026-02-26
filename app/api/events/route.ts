@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event } from '@/lib/db';
 import { clusterApiUrl, Connection, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 const POST_EVENT_FEE_LAMPORTS = 100_000;
 const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
@@ -8,6 +9,20 @@ const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz
 
 const VERIFY_RETRIES = 8;
 const VERIFY_RETRY_DELAY_MS = 500;
+
+function resolveTestnetRpcCandidates(): string[] {
+  const candidates: string[] = [];
+  const configured = process.env.SOLANA_RPC_URL?.trim();
+
+  if (configured && configured.toLowerCase().includes('testnet')) {
+    candidates.push(configured);
+  }
+
+  candidates.push(clusterApiUrl('testnet'));
+  candidates.push('https://api.testnet.solana.com');
+
+  return Array.from(new Set(candidates));
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,13 +46,34 @@ function parsedAccountKeyToBase58(entry: unknown): string | null {
   return null;
 }
 
+function isLikelyBase58Signature(signature: string): boolean {
+  try {
+    const decoded = bs58.decode(signature);
+    return decoded.length === 64;
+  } catch {
+    return false;
+  }
+}
+
 async function hasValidPostFeeTransfer(signature: string, organizer: string, treasury: string): Promise<boolean> {
   try {
-    const connection = new Connection(process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'), 'confirmed');
-    const tx = await connection.getParsedTransaction(signature, {
-      commitment: 'confirmed',
-      maxSupportedTransactionVersion: 0,
-    });
+    let tx: Awaited<ReturnType<Connection['getParsedTransaction']>> | null = null;
+
+    for (const rpc of resolveTestnetRpcCandidates()) {
+      const connection = new Connection(rpc, 'confirmed');
+
+      for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
+        tx = await connection.getParsedTransaction(signature, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0,
+        });
+
+        if (tx) break;
+        await sleep(VERIFY_RETRY_DELAY_MS);
+      }
+
+      if (tx) break;
+    }
 
     if (!tx) return false;
 
@@ -82,17 +118,22 @@ async function hasValidCreateEventSignature(
   eventAccount?: string
 ): Promise<boolean> {
   try {
-    const connection = new Connection(process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet'), 'confirmed');
-    let tx: Awaited<ReturnType<typeof connection.getParsedTransaction>> | null = null;
+    let tx: Awaited<ReturnType<Connection['getParsedTransaction']>> | null = null;
 
-    for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
-      tx = await connection.getParsedTransaction(signature, {
-        commitment: 'confirmed',
-        maxSupportedTransactionVersion: 0,
-      });
+    for (const rpc of resolveTestnetRpcCandidates()) {
+      const connection = new Connection(rpc, 'confirmed');
+
+      for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
+        tx = await connection.getParsedTransaction(signature, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0,
+        });
+
+        if (tx) break;
+        await sleep(VERIFY_RETRY_DELAY_MS);
+      }
 
       if (tx) break;
-      await sleep(VERIFY_RETRY_DELAY_MS);
     }
 
     if (!tx || tx.meta?.err) return false;
@@ -232,6 +273,36 @@ export async function POST(request: NextRequest) {
     const treasury = process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY;
     let verified = false;
 
+    if (typeof create_event_signature === 'string' && create_event_signature.length > 0 && !isLikelyBase58Signature(create_event_signature)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid create_event_signature format (expected base58 signature)',
+          hint: {
+            expected: 'base58',
+            receivedLength: create_event_signature.length,
+            rpcCandidates: resolveTestnetRpcCandidates(),
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (typeof post_fee_signature === 'string' && post_fee_signature.length > 0 && !isLikelyBase58Signature(post_fee_signature)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid post_fee_signature format (expected base58 signature)',
+          hint: {
+            expected: 'base58',
+            receivedLength: post_fee_signature.length,
+            rpcCandidates: resolveTestnetRpcCandidates(),
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     if (typeof create_event_signature === 'string' && create_event_signature.length > 0) {
       verified = await hasValidCreateEventSignature(create_event_signature, organizer_wallet, event_account);
     }
@@ -242,7 +313,18 @@ export async function POST(request: NextRequest) {
 
     if (!verified) {
       return NextResponse.json(
-        { success: false, error: 'On-chain event posting transaction not verified' },
+        {
+          success: false,
+          error: 'On-chain event posting transaction not verified',
+          hint: {
+            rpcCandidatesTried: resolveTestnetRpcCandidates(),
+            createEventSignatureProvided: Boolean(create_event_signature),
+            postFeeSignatureProvided: Boolean(post_fee_signature),
+            organizerWallet: organizer_wallet,
+            eventAccount: event_account ?? null,
+            note: 'Ensure frontend sends base58 signature and Vercel SOLANA_RPC_URL points to testnet.',
+          },
+        },
         { status: 400 }
       );
     }
