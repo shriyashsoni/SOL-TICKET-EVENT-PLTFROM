@@ -1,0 +1,12 @@
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\debug\deps\serde-824b4863950e92e5.d: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Shriyash\ Soni\Downloads\SOL\ TICKET\ EVENT\ PLTFROM\programs\blink_ticket\target\debug\build\serde-dcb01da5d51ebcdd\out/private.rs
+
+C:\Users\Shriyash Soni\Downloads\SOL TICKET EVENT PLTFROM\programs\blink_ticket\target\debug\deps\libserde-824b4863950e92e5.rmeta: C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Shriyash\ Soni\Downloads\SOL\ TICKET\ EVENT\ PLTFROM\programs\blink_ticket\target\debug\build\serde-dcb01da5d51ebcdd\out/private.rs
+
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\Shriyash\ Soni\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\Shriyash\ Soni\Downloads\SOL\ TICKET\ EVENT\ PLTFROM\programs\blink_ticket\target\debug\build\serde-dcb01da5d51ebcdd\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Shriyash Soni\\Downloads\\SOL TICKET EVENT PLTFROM\\programs\\blink_ticket\\target\\debug\\build\\serde-dcb01da5d51ebcdd\\out
