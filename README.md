@@ -8,6 +8,13 @@ A full-stack Solana testnet event-ticketing platform with:
 - Realtime synchronization (SSE)
 - Durable local persistence (SQLite + JSON fallback)
 
+## Smart Contracts Quick Links
+
+- Program entry: https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/blob/main/programs/blink_ticket/src/lib.rs
+- Instructions folder: https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/tree/main/programs/blink_ticket/src/instructions
+- State folder: https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/tree/main/programs/blink_ticket/src/state
+- Cargo manifest: https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/blob/main/programs/blink_ticket/Cargo.toml
+
 ---
 
 ## Table of Contents
