@@ -532,7 +532,7 @@ export default function EventsPage() {
           ) : (
             <div className="grid md:grid-cols-3 gap-6 mb-12">
               {filteredEvents.map((event: EventRecord, index: number) => {
-                const gradients = ['from-accent to-primary', 'from-primary to-accent', 'from-accent/80 to-primary/80'];
+                const gradients = ['from-purple-600 to-blue-600', 'from-blue-600 to-cyan-600', 'from-pink-600 to-orange-600'];
                 const gradient = gradients[index % gradients.length];
                 const ticketsSold = event.total_tickets - event.available_tickets;
                 const soldPct = Math.round((ticketsSold / event.total_tickets) * 100);

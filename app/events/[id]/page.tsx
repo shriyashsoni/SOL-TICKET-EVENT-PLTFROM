@@ -190,7 +190,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
 
           <div className="grid md:grid-cols-3 gap-8 mb-16">
             <div className="md:col-span-2">
-              <div className="bg-gradient-to-br from-accent to-primary h-96 rounded-lg mb-8 relative overflow-hidden">
+              <div className="bg-gradient-to-br from-purple-600 to-blue-600 h-96 rounded-lg mb-8 relative overflow-hidden">
                 {event.poster_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -256,9 +256,9 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
                   <p className="text-sm text-muted-foreground">Gross profit: {grossProfit.toFixed(4)} SOL</p>
 
                   {percentageSold > 90 && (
-                    <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
-                      <Zap className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-accent">
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 flex items-start gap-3">
+                      <Zap className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-orange-600 dark:text-orange-400">
                         This event is almost sold out. Get your tickets before they&apos;re gone!
                       </p>
                     </div>

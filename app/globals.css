@@ -4,76 +4,92 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #fff8ef;
-  --foreground: #3f220f;
-  --card: #fff1df;
-  --card-foreground: #3f220f;
-  --popover: #fff8ef;
-  --popover-foreground: #3f220f;
-  --primary: #7e3f1a;
-  --primary-foreground: #fff8ef;
-  --secondary: #f5e4cf;
-  --secondary-foreground: #4a2712;
-  --muted: #eed8bf;
-  --muted-foreground: #8a6446;
-  --accent: #c46b1c;
-  --accent-foreground: #fff8ef;
+  /* Light Theme - Premium White */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #f8f8f8;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  /* Primary - Deep Purple */
+  --primary: #6b21a8;
+  --primary-foreground: #ffffff;
+  /* Secondary - Slate */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0a0a0a;
+  /* Muted - Light Gray */
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  /* Accent - Cyan (Solana-inspired) */
+  --accent: #06b6d4;
+  --accent-foreground: #ffffff;
   /* Destructive - Red */
-  --destructive: #b64031;
-  --destructive-foreground: #fff8ef;
-  --border: #e6c8a8;
-  --input: #e6c8a8;
-  --ring: #c46b1c;
-  --chart-1: #7e3f1a;
-  --chart-2: #c46b1c;
-  --chart-3: #9a5a2a;
-  --chart-4: #d9934a;
-  --chart-5: #f0c38a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  /* Borders */
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #6b21a8;
+  /* Chart Colors */
+  --chart-1: #6b21a8;
+  --chart-2: #06b6d4;
+  --chart-3: #3b82f6;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
   --radius: 0.625rem;
   /* Sidebar */
-  --sidebar: #fff8ef;
-  --sidebar-foreground: #3f220f;
-  --sidebar-primary: #7e3f1a;
-  --sidebar-primary-foreground: #fff8ef;
-  --sidebar-accent: #c46b1c;
-  --sidebar-accent-foreground: #fff8ef;
-  --sidebar-border: #e6c8a8;
-  --sidebar-ring: #c46b1c;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #6b21a8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #06b6d4;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #6b21a8;
 }
 
 .dark {
-  --background: #1f120a;
-  --foreground: #f6dcc0;
-  --card: #2a180d;
-  --card-foreground: #f6dcc0;
-  --popover: #2a180d;
-  --popover-foreground: #f6dcc0;
-  --primary: #d9934a;
-  --primary-foreground: #2a180d;
-  --secondary: #3a2314;
-  --secondary-foreground: #f6dcc0;
-  --muted: #4a2d19;
-  --muted-foreground: #c4a486;
-  --accent: #f0a04b;
-  --accent-foreground: #2a180d;
-  --destructive: #f0785f;
-  --destructive-foreground: #2a180d;
-  --border: #4a2d19;
-  --input: #4a2d19;
-  --ring: #f0a04b;
-  --chart-1: #d9934a;
-  --chart-2: #f0a04b;
-  --chart-3: #c46b1c;
-  --chart-4: #f0c38a;
-  --chart-5: #8a4d24;
-  --sidebar: #23140b;
-  --sidebar-foreground: #f6dcc0;
-  --sidebar-primary: #d9934a;
-  --sidebar-primary-foreground: #2a180d;
-  --sidebar-accent: #f0a04b;
-  --sidebar-accent-foreground: #2a180d;
-  --sidebar-border: #4a2d19;
-  --sidebar-ring: #f0a04b;
+  /* Dark Theme - Deep Black with Accents */
+  --background: #0a0a0a;
+  --foreground: #f8f8f8;
+  --card: #1a1a1a;
+  --card-foreground: #f8f8f8;
+  --popover: #1a1a1a;
+  --popover-foreground: #f8f8f8;
+  /* Primary - Cyan (Solana-inspired) */
+  --primary: #06b6d4;
+  --primary-foreground: #0a0a0a;
+  /* Secondary - Dark Slate */
+  --secondary: #2a2a2a;
+  --secondary-foreground: #f8f8f8;
+  /* Muted - Gray */
+  --muted: #3a3a3a;
+  --muted-foreground: #a8b0b8;
+  /* Accent - Purple */
+  --accent: #a78bfa;
+  --accent-foreground: #0a0a0a;
+  /* Destructive */
+  --destructive: #f87171;
+  --destructive-foreground: #0a0a0a;
+  /* Borders */
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #06b6d4;
+  /* Chart Colors */
+  --chart-1: #06b6d4;
+  --chart-2: #a78bfa;
+  --chart-3: #3b82f6;
+  --chart-4: #ec4899;
+  --chart-5: #f59e0b;
+  /* Sidebar */
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #f8f8f8;
+  --sidebar-primary: #06b6d4;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #a78bfa;
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #06b6d4;
 }
 
 @theme inline {

@@ -8,7 +8,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-4">
             <Image
-              src="/placeholder-logo.png"
+              src="/blinkticket_logo.svg"
               alt="BlinkTicket"
               width={130}
               height={42}
