@@ -191,7 +191,8 @@ export default function EventsPage() {
         organizer_wallet: publicKey,
         organizer_name: organizerName || 'Anonymous',
         event_account: actionPayload.eventAccount || null,
-        create_event_signature: createEventSignature,
+        create_event_signature: actionPayload.verificationMode === 'create_event' ? createEventSignature : undefined,
+        post_fee_signature: actionPayload.verificationMode === 'post_fee' ? createEventSignature : undefined,
       }),
     });
 

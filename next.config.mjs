@@ -3,6 +3,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ['sqlite3'],
   images: {
     unoptimized: true,
   },

@@ -18,6 +18,8 @@ import {
 
 const DEFAULT_RPC = process.env.SOLANA_RPC_URL ?? clusterApiUrl('testnet');
 const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
+const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
+const POST_EVENT_FEE_LAMPORTS = 100_000;
 
 type CreateEventPayload = {
   account?: string;
@@ -115,9 +117,35 @@ export async function POST(request: NextRequest) {
 
     const programStateInfo = await connection.getAccountInfo(programState, 'confirmed');
     if (!programStateInfo || !programStateInfo.owner.equals(programId)) {
+      const treasury = query.get('treasury')
+        ? new PublicKey(parsePublicKeyString(query.get('treasury'), 'treasury'))
+        : new PublicKey(process.env.BLINK_EVENT_TREASURY ?? DEFAULT_TREASURY);
+
+      const feeTransferIx = SystemProgram.transfer({
+        fromPubkey: organizer,
+        toPubkey: treasury,
+        lamports: POST_EVENT_FEE_LAMPORTS,
+      });
+
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+      const fallbackTx = new Transaction({
+        feePayer: organizer,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(feeTransferIx);
+
       return NextResponse.json(
-        { error: 'Program state not initialized on this network' },
-        { status: 400, headers: ACTIONS_CORS_HEADERS }
+        {
+          transaction: fallbackTx.serialize({
+            requireAllSignatures: false,
+            verifySignatures: false,
+          }).toString('base64'),
+          eventAccount: null,
+          verificationMode: 'post_fee',
+          message: 'Program state missing; using on-chain posting fee fallback',
+        },
+        { headers: ACTIONS_CORS_HEADERS }
       );
     }
 
@@ -176,6 +204,7 @@ export async function POST(request: NextRequest) {
         }).toString('base64'),
         eventAccount: eventAccount.toBase58(),
         programState: programState.toBase58(),
+        verificationMode: 'create_event',
         message: `Create event: ${eventName}`,
       },
       { headers: ACTIONS_CORS_HEADERS }
