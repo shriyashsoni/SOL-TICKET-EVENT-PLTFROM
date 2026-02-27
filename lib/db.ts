@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import sqlite3 from 'sqlite3';
 
-// File-backed database for BlinkTicket
-// Data persists across server restarts in local workspace
+// SQLite-backed database for BlinkTicket
+// Persists in a writable location (BLINK_DB_PATH/BLINK_DB_DIR, workspace data/, or /tmp)
 
 export interface Event {
   id: string;
@@ -50,239 +51,311 @@ export interface Transaction {
 
 type DatabaseShape = {
   events: Event[];
-  users: User[];
   tickets: Ticket[];
-  transactions: Transaction[];
   initialized: boolean;
 };
 
-const DB_DIR = path.join(process.cwd(), 'data');
-const DB_FILE_PATH = path.join(DB_DIR, 'blink-db.json');
+function resolveDbFilePath(): string {
+  const explicitPath = process.env.BLINK_DB_PATH?.trim();
+  if (explicitPath) {
+    try {
+      const dbDir = path.dirname(explicitPath);
+      fs.mkdirSync(dbDir, { recursive: true });
+      fs.accessSync(dbDir, fs.constants.W_OK);
+      return explicitPath;
+    } catch {
+      // continue to directory-based resolution
+    }
+  }
 
-// Global runtime cache backed by disk
+  const explicitDir = process.env.BLINK_DB_DIR?.trim();
+  const cwdDir = path.join(process.cwd(), 'data');
+  const tmpDir = path.join('/tmp', 'blinkticket-data');
+
+  const candidates = [explicitDir, cwdDir, tmpDir].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return path.join(dir, 'blink.db');
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return ':memory:';
+}
+
 const database: DatabaseShape = {
   events: [],
-  users: [],
   tickets: [],
-  transactions: [],
   initialized: false,
 };
 
-function persistDatabase() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
+const DB_FILE_PATH = resolveDbFilePath();
+let sqliteDb: sqlite3.Database | null = null;
+let initPromise: Promise<void> | null = null;
 
-  fs.writeFileSync(
-    DB_FILE_PATH,
-    JSON.stringify(
-      {
-        events: database.events,
-        users: database.users,
-        tickets: database.tickets,
-        transactions: database.transactions,
-      },
-      null,
-      2
-    ),
-    'utf-8'
-  );
+export function getDbHealth() {
+  const mode = DB_FILE_PATH === ':memory:'
+    ? 'memory'
+    : DB_FILE_PATH.includes('/tmp')
+      ? 'tmp'
+      : 'file';
+
+  return {
+    mode,
+    path: DB_FILE_PATH,
+    initialized: database.initialized,
+    connected: Boolean(sqliteDb),
+  };
 }
 
-function initializeDatabase() {
-  if (database.initialized) return;
+function runSql(query: string, params: any[] = []): Promise<{ lastID: number; changes: number }> {
+  return new Promise((resolve, reject) => {
+    if (!sqliteDb) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+
+    sqliteDb.run(query, params, function onRun(error) {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve({
+        lastID: Number(this.lastID ?? 0),
+        changes: Number(this.changes ?? 0),
+      });
+    });
+  });
+}
+
+function allSql<T = any>(query: string, params: any[] = []): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    if (!sqliteDb) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+
+    sqliteDb.all(query, params, (error, rows: T[]) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(rows ?? []);
+    });
+  });
+}
+
+function getSql<T = any>(query: string, params: any[] = []): Promise<T | undefined> {
+  return new Promise((resolve, reject) => {
+    if (!sqliteDb) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+
+    sqliteDb.get(query, params, (error, row: T) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(row);
+    });
+  });
+}
+
+async function initializeDatabase() {
+  if (database.initialized && sqliteDb) return;
+  if (initPromise) return initPromise;
+
+  initPromise = new Promise<void>((resolve, reject) => {
+    const db = new sqlite3.Database(DB_FILE_PATH, async (openError) => {
+      if (openError) {
+        if (DB_FILE_PATH !== ':memory:') {
+          sqliteDb = new sqlite3.Database(':memory:', async (memoryError) => {
+            if (memoryError) {
+              reject(memoryError);
+              return;
+            }
+
+            try {
+              await runSql('PRAGMA foreign_keys = ON');
+              await runSql(`
+                CREATE TABLE IF NOT EXISTS events (
+                  id TEXT PRIMARY KEY,
+                  name TEXT NOT NULL,
+                  description TEXT NOT NULL DEFAULT '',
+                  source_url TEXT,
+                  poster_url TEXT,
+                  location TEXT NOT NULL,
+                  date TEXT NOT NULL,
+                  category TEXT NOT NULL DEFAULT 'General',
+                  price_sol REAL NOT NULL,
+                  price_usdc REAL NOT NULL,
+                  total_tickets INTEGER NOT NULL,
+                  available_tickets INTEGER NOT NULL,
+                  withdrawn_profit_sol REAL NOT NULL DEFAULT 0,
+                  organizer_wallet TEXT NOT NULL,
+                  organizer_name TEXT,
+                  event_account TEXT,
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
+
+              await runSql(`
+                CREATE TABLE IF NOT EXISTS users (
+                  id TEXT PRIMARY KEY,
+                  wallet_address TEXT UNIQUE NOT NULL,
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
+
+              await runSql(`
+                CREATE TABLE IF NOT EXISTS tickets (
+                  id TEXT PRIMARY KEY,
+                  event_id TEXT NOT NULL,
+                  owner_wallet TEXT NOT NULL,
+                  purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  price_paid_sol REAL NOT NULL,
+                  FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+                )
+              `);
+
+              await runSql(`
+                CREATE TABLE IF NOT EXISTS transactions (
+                  id TEXT PRIMARY KEY,
+                  type TEXT NOT NULL,
+                  event_id TEXT NOT NULL,
+                  user_wallet TEXT NOT NULL,
+                  amount_sol REAL NOT NULL,
+                  status TEXT NOT NULL,
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+                )
+              `);
+
+              await runSql('CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)');
+              await runSql('CREATE INDEX IF NOT EXISTS idx_tickets_owner_wallet ON tickets(owner_wallet)');
+              await runSql('CREATE INDEX IF NOT EXISTS idx_transactions_user_wallet ON transactions(user_wallet)');
+
+              database.initialized = true;
+              resolve();
+            } catch (schemaError) {
+              reject(schemaError);
+            }
+          });
+          return;
+        }
+
+        reject(openError);
+        return;
+      }
+
+      sqliteDb = db;
+
+      try {
+        await runSql('PRAGMA foreign_keys = ON');
+        await runSql(`
+          CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            source_url TEXT,
+            poster_url TEXT,
+            location TEXT NOT NULL,
+            date TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'General',
+            price_sol REAL NOT NULL,
+            price_usdc REAL NOT NULL,
+            total_tickets INTEGER NOT NULL,
+            available_tickets INTEGER NOT NULL,
+            withdrawn_profit_sol REAL NOT NULL DEFAULT 0,
+            organizer_wallet TEXT NOT NULL,
+            organizer_name TEXT,
+            event_account TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        await runSql(`
+          CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            wallet_address TEXT UNIQUE NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        await runSql(`
+          CREATE TABLE IF NOT EXISTS tickets (
+            id TEXT PRIMARY KEY,
+            event_id TEXT NOT NULL,
+            owner_wallet TEXT NOT NULL,
+            purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            price_paid_sol REAL NOT NULL,
+            FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+          )
+        `);
+
+        await runSql(`
+          CREATE TABLE IF NOT EXISTS transactions (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            user_wallet TEXT NOT NULL,
+            amount_sol REAL NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+          )
+        `);
+
+        await runSql('CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)');
+        await runSql('CREATE INDEX IF NOT EXISTS idx_tickets_owner_wallet ON tickets(owner_wallet)');
+        await runSql('CREATE INDEX IF NOT EXISTS idx_transactions_user_wallet ON transactions(user_wallet)');
+
+        database.initialized = true;
+        resolve();
+      } catch (schemaError) {
+        reject(schemaError);
+      }
+    });
+  });
 
   try {
-    if (fs.existsSync(DB_FILE_PATH)) {
-      const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-      const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
-      database.events = Array.isArray(parsed.events) ? parsed.events : [];
-      database.users = Array.isArray(parsed.users) ? parsed.users : [];
-      database.tickets = Array.isArray(parsed.tickets) ? parsed.tickets : [];
-      database.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
-    } else {
-      database.events = [];
-      database.users = [];
-      database.tickets = [];
-      database.transactions = [];
-      persistDatabase();
-    }
-  } catch {
-    database.events = [];
-    database.users = [];
-    database.tickets = [];
-    database.transactions = [];
-    persistDatabase();
+    await initPromise;
+  } finally {
+    initPromise = null;
   }
-
-  database.initialized = true;
 }
 
 export async function dbAll<T = any>(query: string, params: any[] = []): Promise<T[]> {
-  initializeDatabase();
-
-  if (query.includes('SELECT * FROM events')) {
-    let events = [...database.events] as any[];
-    
-    if (query.includes('WHERE category = ?')) {
-      events = events.filter(e => e.category === params[0]);
-    }
-    
-    if (query.includes('WHERE id = ?')) {
-      events = events.filter(e => e.id === params[0]);
-    }
-
-    events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return events as T[];
-  }
-
-  if (query.includes('SELECT * FROM tickets')) {
-    let tickets = [...database.tickets] as any[];
-    
-    if (query.includes('WHERE event_id = ?')) {
-      tickets = tickets.filter(t => t.event_id === params[0]);
-    }
-    
-    if (query.includes('WHERE owner_wallet = ?')) {
-      tickets = tickets.filter(t => t.owner_wallet === params[0]);
-    }
-
-    return tickets as T[];
-  }
-
-  if (query.includes('SELECT * FROM transactions')) {
-    let transactions = [...database.transactions] as any[];
-    
-    if (query.includes('WHERE user_wallet = ?')) {
-      transactions = transactions.filter(t => t.user_wallet === params[0]);
-    }
-
-    return transactions as T[];
-  }
-
-  return [] as T[];
+  await initializeDatabase();
+  return allSql<T>(query, params);
 }
 
 export async function dbGet<T = any>(query: string, params: any[] = []): Promise<T | undefined> {
-  const results = await dbAll<T>(query, params);
-  return results[0];
+  await initializeDatabase();
+  return getSql<T>(query, params);
 }
 
 export async function dbRun(query: string, params: any[] = []): Promise<{ lastID: number; changes: number }> {
-  initializeDatabase();
-
-  if (query.includes('INSERT INTO events')) {
-    const [id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account, source_url, poster_url] = params;
-    database.events.push({
-      id,
-      name,
-      description,
-      source_url,
-      poster_url,
-      location,
-      date,
-      category,
-      price_sol,
-      price_usdc,
-      total_tickets,
-      available_tickets,
-      withdrawn_profit_sol: 0,
-      organizer_wallet,
-      organizer_name,
-      event_account,
-      created_at: new Date().toISOString(),
-    });
-    persistDatabase();
-    return { lastID: database.events.length, changes: 1 };
-  }
-
-  if (query.includes('UPDATE events SET withdrawn_profit_sol = ? WHERE id = ?')) {
-    const [withdrawn_profit_sol, id] = params;
-    const index = database.events.findIndex((event) => event.id === id);
-    if (index === -1) {
-      return { lastID: 0, changes: 0 };
-    }
-
-    database.events[index] = {
-      ...database.events[index],
-      withdrawn_profit_sol: Number(withdrawn_profit_sol) || 0,
-    };
-
-    persistDatabase();
-    return { lastID: index + 1, changes: 1 };
-  }
-
-  if (query.includes('UPDATE events SET available_tickets = ? WHERE id = ?')) {
-    const [available_tickets, id] = params;
-    const index = database.events.findIndex((event) => event.id === id);
-    if (index === -1) {
-      return { lastID: 0, changes: 0 };
-    }
-
-    database.events[index] = {
-      ...database.events[index],
-      available_tickets: Math.max(0, Number(available_tickets) || 0),
-    };
-
-    persistDatabase();
-    return { lastID: index + 1, changes: 1 };
-  }
-
-  if (query.includes('DELETE FROM events WHERE id = ?')) {
-    const [id] = params;
-    const beforeCount = database.events.length;
-
-    database.events = database.events.filter((event) => event.id !== id);
-    database.tickets = database.tickets.filter((ticket) => ticket.event_id !== id);
-    database.transactions = database.transactions.filter((tx) => tx.event_id !== id);
-
-    const changes = beforeCount - database.events.length;
-    if (changes > 0) {
-      persistDatabase();
-      return { lastID: beforeCount, changes };
-    }
-
-    return { lastID: 0, changes: 0 };
-  }
-
-  if (query.includes('INSERT INTO tickets')) {
-    const [id, event_id, owner_wallet, price_paid_sol] = params;
-    database.tickets.push({
-      id,
-      event_id,
-      owner_wallet,
-      price_paid_sol,
-      purchased_at: new Date().toISOString(),
-    });
-    persistDatabase();
-    return { lastID: database.tickets.length, changes: 1 };
-  }
-
-  if (query.includes('INSERT INTO transactions')) {
-    const [id, type, event_id, user_wallet, amount_sol, status] = params;
-    database.transactions.push({
-      id,
-      type,
-      event_id,
-      user_wallet,
-      amount_sol,
-      status,
-      created_at: new Date().toISOString(),
-    });
-    persistDatabase();
-    return { lastID: database.transactions.length, changes: 1 };
-  }
-
-  return { lastID: 0, changes: 0 };
+  await initializeDatabase();
+  return runSql(query, params);
 }
 
-export function getStats() {
-  initializeDatabase();
+export async function getStats() {
+  await initializeDatabase();
 
-  const totalTicketsSold = database.tickets.length;
-  const activeEvents = database.events.filter(e => new Date(e.date) > new Date()).length;
-  const activeUsers = new Set(database.tickets.map(t => t.owner_wallet)).size;
-  const totalRevenueSol = database.tickets.reduce((sum, t) => sum + t.price_paid_sol, 0);
+  const tickets = await allSql<Ticket>('SELECT * FROM tickets');
+  const events = await allSql<Event>('SELECT * FROM events');
+
+  const totalTicketsSold = tickets.length;
+  const activeEvents = events.filter((event) => new Date(event.date) > new Date()).length;
+  const activeUsers = new Set(tickets.map((ticket) => ticket.owner_wallet)).size;
+  const totalRevenueSol = tickets.reduce((sum, ticket) => sum + Number(ticket.price_paid_sol), 0);
 
   return {
     totalTicketsSold,

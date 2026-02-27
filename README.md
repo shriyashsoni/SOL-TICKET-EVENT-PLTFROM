@@ -27,7 +27,15 @@ BLINK_EVENT_TREASURY=5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ
 BLINK_PROGRAM_STATE=
 BLINK_EVENT_ACCOUNT=
 BLINK_DEFAULT_MERKLE_TREE=
+BLINK_DB_PATH=
+BLINK_DB_DIR=
 ```
+
+SQLite persistence variables:
+
+- `BLINK_DB_PATH`: exact sqlite file path (highest priority)
+- `BLINK_DB_DIR`: directory where `blink.db` will be created
+- If both are empty, app falls back to workspace `data/`, then `/tmp/blinkticket-data`, then in-memory fallback.
 
 ## Local App
 
