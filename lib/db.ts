@@ -122,9 +122,71 @@ const database: DatabaseShape = {
 };
 
 const DB_FILE_PATH = resolveDbFilePath();
+const FALLBACK_JSON_PATH = DB_FILE_PATH === ':memory:'
+  ? path.join('/tmp', 'blinkticket-data', 'blink-fallback.json')
+  : path.join(path.dirname(DB_FILE_PATH), 'blink-fallback.json');
 let sqliteDb: any = null;
 let initPromise: Promise<void> | null = null;
 let usingMemoryFallback = false;
+
+function loadFallbackFromDisk() {
+  try {
+    const dir = path.dirname(FALLBACK_JSON_PATH);
+    fs.mkdirSync(dir, { recursive: true });
+
+    if (!fs.existsSync(FALLBACK_JSON_PATH)) {
+      database.events = [];
+      database.users = [];
+      database.tickets = [];
+      database.transactions = [];
+      return;
+    }
+
+    const raw = fs.readFileSync(FALLBACK_JSON_PATH, 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
+    database.events = Array.isArray(parsed.events) ? parsed.events : [];
+    database.users = Array.isArray(parsed.users) ? parsed.users : [];
+    database.tickets = Array.isArray(parsed.tickets) ? parsed.tickets : [];
+    database.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+  } catch {
+    database.events = [];
+    database.users = [];
+    database.tickets = [];
+    database.transactions = [];
+  }
+}
+
+function persistFallbackToDisk() {
+  if (!usingMemoryFallback) return;
+
+  try {
+    const dir = path.dirname(FALLBACK_JSON_PATH);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      FALLBACK_JSON_PATH,
+      JSON.stringify(
+        {
+          events: database.events,
+          users: database.users,
+          tickets: database.tickets,
+          transactions: database.transactions,
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+  } catch {
+    // keep runtime data even if persistence fails
+  }
+}
+
+function activateMemoryFallback() {
+  usingMemoryFallback = true;
+  sqliteDb = null;
+  loadFallbackFromDisk();
+  database.initialized = true;
+}
 
 export function getDbHealth() {
   const mode = usingMemoryFallback
@@ -281,6 +343,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       created_at: new Date().toISOString(),
     });
 
+    persistFallbackToDisk();
+
     return { lastID: database.events.length, changes: 1 };
   }
 
@@ -293,6 +357,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       ...database.events[index],
       withdrawn_profit_sol: Number(withdrawn_profit_sol) || 0,
     };
+
+    persistFallbackToDisk();
 
     return { lastID: index + 1, changes: 1 };
   }
@@ -307,6 +373,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       available_tickets: Math.max(0, Number(available_tickets) || 0),
     };
 
+    persistFallbackToDisk();
+
     return { lastID: index + 1, changes: 1 };
   }
 
@@ -317,6 +385,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
     database.events = database.events.filter((event) => event.id !== id);
     database.tickets = database.tickets.filter((ticket) => ticket.event_id !== id);
     database.transactions = database.transactions.filter((transaction) => transaction.event_id !== id);
+
+    persistFallbackToDisk();
 
     return { lastID: beforeCount, changes: beforeCount - database.events.length };
   }
@@ -330,6 +400,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       price_paid_sol,
       purchased_at: new Date().toISOString(),
     });
+
+    persistFallbackToDisk();
     return { lastID: database.tickets.length, changes: 1 };
   }
 
@@ -344,6 +416,8 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       status,
       created_at: new Date().toISOString(),
     });
+
+    persistFallbackToDisk();
     return { lastID: database.transactions.length, changes: 1 };
   }
 
@@ -366,8 +440,7 @@ async function initializeDatabase() {
             if (DB_FILE_PATH !== ':memory:') {
               sqliteDb = new sqlite3Driver.Database(':memory:', async (memoryError: Error | null) => {
                 if (memoryError) {
-                  usingMemoryFallback = true;
-                  database.initialized = true;
+                  activateMemoryFallback();
                   resolve();
                   return;
                 }
@@ -435,16 +508,14 @@ async function initializeDatabase() {
                   database.initialized = true;
                   resolve();
                 } catch {
-                  usingMemoryFallback = true;
-                  database.initialized = true;
+                  activateMemoryFallback();
                   resolve();
                 }
               });
               return;
             }
 
-            usingMemoryFallback = true;
-            database.initialized = true;
+            activateMemoryFallback();
             resolve();
             return;
           }
@@ -514,14 +585,12 @@ async function initializeDatabase() {
             database.initialized = true;
             resolve();
           } catch {
-            usingMemoryFallback = true;
-            database.initialized = true;
+            activateMemoryFallback();
             resolve();
           }
         });
       } catch {
-        usingMemoryFallback = true;
-        database.initialized = true;
+        activateMemoryFallback();
         resolve();
       }
     };

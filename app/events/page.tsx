@@ -224,6 +224,7 @@ export default function EventsPage() {
     try {
       await createEventFromForm(formState);
       setSubmitMessage('Event created on-chain and posted successfully. Posting fee (0.0001 SOL) charged by smart contract.');
+      window.alert('Event posted successfully!');
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : 'Failed to post event');
     } finally {
@@ -307,6 +308,7 @@ export default function EventsPage() {
       setFormState(mergedFormState);
       await createEventFromForm(mergedFormState);
       setSubmitMessage('Link scraped and event auto-created on-chain successfully.');
+      window.alert('Event posted successfully!');
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : 'Auto create failed');
     } finally {
