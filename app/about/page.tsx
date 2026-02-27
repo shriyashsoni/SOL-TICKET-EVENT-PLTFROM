@@ -47,15 +47,15 @@ export default function AboutPage() {
                   <Globe className="w-12 h-12 text-accent mx-auto mb-4" />
                   <h3 className="font-bold text-foreground">Global</h3>
                 </div>
-                <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8 text-center">
+                <div className="bg-gradient-to-br from-accent/20 to-primary/20 border border-accent/30 rounded-2xl p-8 text-center">
                   <Zap className="w-12 h-12 text-accent mx-auto mb-4" />
                   <h3 className="font-bold text-foreground">Fast</h3>
                 </div>
-                <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-2xl p-8 text-center">
+                <div className="bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 rounded-2xl p-8 text-center">
                   <Lock className="w-12 h-12 text-accent mx-auto mb-4" />
                   <h3 className="font-bold text-foreground">Secure</h3>
                 </div>
-                <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-2xl p-8 text-center">
+                <div className="bg-gradient-to-br from-accent/20 to-primary/20 border border-accent/30 rounded-2xl p-8 text-center">
                   <Shield className="w-12 h-12 text-accent mx-auto mb-4" />
                   <h3 className="font-bold text-foreground">Reliable</h3>
                 </div>

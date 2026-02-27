@@ -2,6 +2,7 @@
 
 import { Moon, Sun, Wallet, Menu, X, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@/app/providers';
@@ -32,10 +33,14 @@ export function Header() {
         <div className="flex items-center justify-between py-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent to-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">₿</span>
-            </div>
-            <span className="font-bold text-lg hidden sm:inline-block">BlinkTicket</span>
+            <Image
+              src="/placeholder-logo.png"
+              alt="BlinkTicket"
+              width={180}
+              height={60}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

@@ -237,7 +237,7 @@ export default function Home() {
                 <div className="col-span-3 text-center text-muted-foreground">No events available</div>
               ) : (
                 events.map((event) => {
-                  const gradients = ['from-purple-600 to-blue-600', 'from-blue-600 to-cyan-600', 'from-pink-600 to-orange-600'];
+                  const gradients = ['from-accent to-primary', 'from-primary to-accent', 'from-accent/80 to-primary/80'];
                   const gradient = gradients[events.indexOf(event) % gradients.length];
                   const ticketsSold = (event.total_tickets - event.available_tickets);
                   const percentageSold = Math.round((ticketsSold / event.total_tickets) * 100);

@@ -64,7 +64,7 @@ export default function ConnectWalletPage() {
             <div className="bg-card border border-border rounded-lg overflow-hidden mb-8">
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-accent to-primary rounded-2xl flex items-center justify-center">
                     <Zap className="w-8 h-8 text-white" />
                   </div>
                   <div>
