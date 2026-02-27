@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event } from '@/lib/db';
+import { publishRealtimeEvent } from '@/lib/realtime';
 import { clusterApiUrl, Connection, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -353,7 +354,29 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    await dbRun(
+      'INSERT INTO transactions (id, type, event_id, user_wallet, amount_sol, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        `tx-post-${Date.now()}`,
+        'event_post',
+        id,
+        organizer_wallet,
+        Number(POST_EVENT_FEE_LAMPORTS) / 1_000_000_000,
+        'confirmed',
+      ]
+    );
+
     const newEvent = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [id]);
+
+    publishRealtimeEvent('event_created', {
+      eventId: id,
+      organizerWallet: organizer_wallet,
+    });
+    publishRealtimeEvent('transaction_created', {
+      eventId: id,
+      organizerWallet: organizer_wallet,
+      type: 'event_post',
+    });
 
     return NextResponse.json({
       success: true,
@@ -364,6 +387,61 @@ export async function POST(request: NextRequest) {
     console.error('Error creating event:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create event' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const eventId = String(body.eventId ?? '').trim();
+    const organizerWallet = String(body.organizerWallet ?? '').trim();
+
+    if (!eventId || !organizerWallet) {
+      return NextResponse.json(
+        { success: false, error: 'eventId and organizerWallet are required' },
+        { status: 400 }
+      );
+    }
+
+    const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [eventId]);
+    if (!event) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+
+    if (event.organizer_wallet !== organizerWallet) {
+      return NextResponse.json(
+        { success: false, error: 'Only organizer can delete event' },
+        { status: 403 }
+      );
+    }
+
+    const deleted = await dbRun('DELETE FROM events WHERE id = ?', [eventId]);
+    if (deleted.changes <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Event deletion failed' },
+        { status: 500 }
+      );
+    }
+
+    publishRealtimeEvent('event_deleted', {
+      eventId,
+      organizerWallet,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Event deleted successfully',
+      data: { eventId },
+    });
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete event' },
       { status: 500 }
     );
   }

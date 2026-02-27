@@ -1,5 +1,8 @@
-// In-memory database for BlinkTicket
-// Data persists during the session
+import fs from 'node:fs';
+import path from 'node:path';
+
+// File-backed database for BlinkTicket
+// Data persists across server restarts in local workspace
 
 export interface Event {
   id: string;
@@ -37,22 +40,27 @@ export interface Ticket {
 
 export interface Transaction {
   id: string;
-  type: 'purchase' | 'transfer' | 'resale';
+  type: 'purchase' | 'transfer' | 'resale' | 'event_post' | 'withdraw';
   event_id: string;
   user_wallet: string;
   amount_sol: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'confirmed' | 'finalized';
   created_at: string;
 }
 
-// Global in-memory database
-const database: {
+type DatabaseShape = {
   events: Event[];
   users: User[];
   tickets: Ticket[];
   transactions: Transaction[];
   initialized: boolean;
-} = {
+};
+
+const DB_DIR = path.join(process.cwd(), 'data');
+const DB_FILE_PATH = path.join(DB_DIR, 'blink-db.json');
+
+// Global runtime cache backed by disk
+const database: DatabaseShape = {
   events: [],
   users: [],
   tickets: [],
@@ -60,14 +68,52 @@ const database: {
   initialized: false,
 };
 
-// Initialize database (empty; events are user-created)
+function persistDatabase() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+
+  fs.writeFileSync(
+    DB_FILE_PATH,
+    JSON.stringify(
+      {
+        events: database.events,
+        users: database.users,
+        tickets: database.tickets,
+        transactions: database.transactions,
+      },
+      null,
+      2
+    ),
+    'utf-8'
+  );
+}
+
 function initializeDatabase() {
   if (database.initialized) return;
 
-  database.events = [];
-  database.users = [];
-  database.tickets = [];
-  database.transactions = [];
+  try {
+    if (fs.existsSync(DB_FILE_PATH)) {
+      const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
+      database.events = Array.isArray(parsed.events) ? parsed.events : [];
+      database.users = Array.isArray(parsed.users) ? parsed.users : [];
+      database.tickets = Array.isArray(parsed.tickets) ? parsed.tickets : [];
+      database.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+    } else {
+      database.events = [];
+      database.users = [];
+      database.tickets = [];
+      database.transactions = [];
+      persistDatabase();
+    }
+  } catch {
+    database.events = [];
+    database.users = [];
+    database.tickets = [];
+    database.transactions = [];
+    persistDatabase();
+  }
 
   database.initialized = true;
 }
@@ -86,6 +132,7 @@ export async function dbAll<T = any>(query: string, params: any[] = []): Promise
       events = events.filter(e => e.id === params[0]);
     }
 
+    events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return events as T[];
   }
 
@@ -145,6 +192,7 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       event_account,
       created_at: new Date().toISOString(),
     });
+    persistDatabase();
     return { lastID: database.events.length, changes: 1 };
   }
 
@@ -160,7 +208,41 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       withdrawn_profit_sol: Number(withdrawn_profit_sol) || 0,
     };
 
+    persistDatabase();
     return { lastID: index + 1, changes: 1 };
+  }
+
+  if (query.includes('UPDATE events SET available_tickets = ? WHERE id = ?')) {
+    const [available_tickets, id] = params;
+    const index = database.events.findIndex((event) => event.id === id);
+    if (index === -1) {
+      return { lastID: 0, changes: 0 };
+    }
+
+    database.events[index] = {
+      ...database.events[index],
+      available_tickets: Math.max(0, Number(available_tickets) || 0),
+    };
+
+    persistDatabase();
+    return { lastID: index + 1, changes: 1 };
+  }
+
+  if (query.includes('DELETE FROM events WHERE id = ?')) {
+    const [id] = params;
+    const beforeCount = database.events.length;
+
+    database.events = database.events.filter((event) => event.id !== id);
+    database.tickets = database.tickets.filter((ticket) => ticket.event_id !== id);
+    database.transactions = database.transactions.filter((tx) => tx.event_id !== id);
+
+    const changes = beforeCount - database.events.length;
+    if (changes > 0) {
+      persistDatabase();
+      return { lastID: beforeCount, changes };
+    }
+
+    return { lastID: 0, changes: 0 };
   }
 
   if (query.includes('INSERT INTO tickets')) {
@@ -172,6 +254,7 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       price_paid_sol,
       purchased_at: new Date().toISOString(),
     });
+    persistDatabase();
     return { lastID: database.tickets.length, changes: 1 };
   }
 
@@ -186,6 +269,7 @@ export async function dbRun(query: string, params: any[] = []): Promise<{ lastID
       status,
       created_at: new Date().toISOString(),
     });
+    persistDatabase();
     return { lastID: database.transactions.length, changes: 1 };
   }
 

@@ -77,13 +77,26 @@ export default function EventsPage() {
         setEvents(payload.data ?? []);
       } catch (error) {
         console.error('Failed to load events', error);
-        setEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadEvents();
+
+    const eventSource = new EventSource('/api/events/stream');
+    eventSource.addEventListener('update', () => {
+      loadEvents();
+    });
+
+    const interval = window.setInterval(() => {
+      loadEvents();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+      eventSource.close();
+    };
   }, []);
 
   const createEventFromForm = async (activeFormState: typeof formState) => {

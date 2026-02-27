@@ -13,7 +13,8 @@ interface Event {
   date: string;
   location: string;
   price_sol: number;
-  description: string;
+  description?: string;
+  poster_url?: string;
   category: string;
   available_tickets: number;
   total_tickets: number;
@@ -54,6 +55,20 @@ export default function Home() {
     };
 
     fetchData();
+
+    const eventSource = new EventSource('/api/events/stream');
+    eventSource.addEventListener('update', () => {
+      fetchData();
+    });
+
+    const interval = window.setInterval(() => {
+      fetchData();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+      eventSource.close();
+    };
   }, []);
 
   return (
@@ -236,6 +251,14 @@ export default function Home() {
                       <div className="bg-card border border-border rounded-lg overflow-hidden hover:border-accent transition">
                         {/* Image */}
                         <div className={`h-48 bg-gradient-to-br ${gradient} relative overflow-hidden`}>
+                          {event.poster_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={event.poster_url}
+                              alt={`${event.name} poster`}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          ) : null}
                           <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition" />
                         </div>
 
@@ -244,6 +267,7 @@ export default function Home() {
                           <h3 className="text-xl font-bold mb-2 group-hover:text-accent transition line-clamp-2">
                             {event.name}
                           </h3>
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{event.description || 'No description available yet.'}</p>
                           <p className="text-sm text-muted-foreground mb-2">{event.date}</p>
                           <p className="text-sm text-muted-foreground mb-4">{event.location}</p>
 

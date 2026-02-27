@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbGet, dbRun, type Event } from '@/lib/db';
+import { publishRealtimeEvent } from '@/lib/realtime';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,6 +44,17 @@ export async function POST(request: NextRequest) {
 
     const updatedWithdrawn = withdrawn + available;
     await dbRun('UPDATE events SET withdrawn_profit_sol = ? WHERE id = ?', [updatedWithdrawn, event.id]);
+    await dbRun(
+      'INSERT INTO transactions (id, type, event_id, user_wallet, amount_sol, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [`tx-withdraw-${Date.now()}`, 'withdraw', event.id, organizerWallet, available, 'confirmed']
+    );
+
+    publishRealtimeEvent('event_updated', { eventId: event.id, organizerWallet });
+    publishRealtimeEvent('transaction_created', {
+      eventId: event.id,
+      organizerWallet,
+      type: 'withdraw',
+    });
 
     return NextResponse.json({
       success: true,

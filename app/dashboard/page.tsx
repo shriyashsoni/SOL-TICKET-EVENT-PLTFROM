@@ -4,8 +4,8 @@ import { HeaderWrapper } from '@/components/header-wrapper';
 import { Footer } from '@/components/footer';
 import { useWallet } from '@/app/wallet-context';
 import { useRouter } from 'next/navigation';
-import { Wallet, TrendingUp, Ticket, LogOut } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Wallet, TrendingUp, Ticket, LogOut, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 type TicketRecord = {
@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [postedEvents, setPostedEvents] = useState<PostedEventRecord[]>([]);
   const [withdrawingEventId, setWithdrawingEventId] = useState<string | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [withdrawMessage, setWithdrawMessage] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -58,41 +59,54 @@ export default function DashboardPage() {
     }
   }, [connected, router]);
 
+  const loadDashboardData = useCallback(async () => {
+    if (!connected || !publicKey) return;
+    setLoading(true);
+    try {
+      await refreshBalance();
+
+      const [ticketsRes, txRes, eventsRes] = await Promise.all([
+        fetch(`/api/tickets?publicKey=${publicKey}`),
+        fetch(`/api/transactions?publicKey=${publicKey}&limit=10`),
+        fetch('/api/events'),
+      ]);
+
+      const ticketsPayload = await ticketsRes.json();
+      const txPayload = await txRes.json();
+      const eventsPayload = await eventsRes.json();
+
+      setTickets(ticketsPayload.data ?? []);
+      setTransactions(txPayload.data ?? []);
+      const myEvents = (eventsPayload.data ?? []).filter(
+        (event: PostedEventRecord) => event.organizer_wallet === publicKey
+      );
+      setPostedEvents(myEvents);
+    } catch (error) {
+      console.error('Failed to load dashboard data', error);
+      setTickets([]);
+      setTransactions([]);
+      setPostedEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [connected, publicKey, refreshBalance]);
+
   useEffect(() => {
-    const load = async () => {
-      if (!connected || !publicKey) return;
-      setLoading(true);
-      try {
-        await refreshBalance();
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-        const [ticketsRes, txRes, eventsRes] = await Promise.all([
-          fetch(`/api/tickets?publicKey=${publicKey}`),
-          fetch(`/api/transactions?publicKey=${publicKey}&limit=10`),
-          fetch('/api/events'),
-        ]);
+  useEffect(() => {
+    if (!connected || !publicKey) return;
 
-        const ticketsPayload = await ticketsRes.json();
-        const txPayload = await txRes.json();
-        const eventsPayload = await eventsRes.json();
+    const eventSource = new EventSource('/api/events/stream');
+    eventSource.addEventListener('update', () => {
+      loadDashboardData();
+    });
 
-        setTickets(ticketsPayload.data ?? []);
-        setTransactions(txPayload.data ?? []);
-        const myEvents = (eventsPayload.data ?? []).filter(
-          (event: PostedEventRecord) => event.organizer_wallet === publicKey
-        );
-        setPostedEvents(myEvents);
-      } catch (error) {
-        console.error('Failed to load dashboard data', error);
-        setTickets([]);
-        setTransactions([]);
-        setPostedEvents([]);
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      eventSource.close();
     };
-
-    load();
-  }, [connected, publicKey]);
+  }, [connected, publicKey, loadDashboardData]);
 
   const totalSpent = useMemo(() => {
     return transactions
@@ -151,6 +165,39 @@ export default function DashboardPage() {
       setWithdrawMessage(error instanceof Error ? error.message : 'Withdraw failed');
     } finally {
       setWithdrawingEventId(null);
+    }
+  };
+
+  const onDeleteEvent = async (eventId: string) => {
+    if (!publicKey) return;
+
+    const confirmed = window.confirm('Delete this event permanently? This will also remove related tickets and transactions.');
+    if (!confirmed) return;
+
+    setDeletingEventId(eventId);
+    setWithdrawMessage('');
+
+    try {
+      const response = await fetch('/api/events', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          organizerWallet: publicKey,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to delete event');
+      }
+
+      setPostedEvents((prev) => prev.filter((event) => event.id !== eventId));
+      setWithdrawMessage('Event deleted successfully.');
+    } catch (error) {
+      setWithdrawMessage(error instanceof Error ? error.message : 'Delete failed');
+    } finally {
+      setDeletingEventId(null);
     }
   };
 
@@ -348,6 +395,14 @@ export default function DashboardPage() {
                           className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
                         >
                           {withdrawingEventId === event.id ? 'Withdrawing...' : 'Withdraw Profit'}
+                        </button>
+                        <button
+                          onClick={() => onDeleteEvent(event.id)}
+                          disabled={deletingEventId === event.id}
+                          className="px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground disabled:opacity-50 inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {deletingEventId === event.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>

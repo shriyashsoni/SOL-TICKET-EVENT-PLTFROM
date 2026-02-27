@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbAll, dbGet, dbRun, type Event, type Ticket } from '@/lib/db';
 import { clusterApiUrl, Connection } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { publishRealtimeEvent } from '@/lib/realtime';
 
 const VERIFY_RETRIES = 8;
 const VERIFY_RETRY_DELAY_MS = 500;
@@ -110,6 +111,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (Number(event.available_tickets) <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'Event is sold out' },
+          { status: 400 }
+        );
+      }
+
       let parsedTx: Awaited<ReturnType<Connection['getParsedTransaction']>> | null = null;
       let confirmationState: 'processed' | 'confirmed' | 'finalized' | null = null;
       let hadOnChainError = false;
@@ -191,6 +199,15 @@ export async function POST(request: NextRequest) {
         'INSERT INTO transactions (id, type, event_id, user_wallet, amount_sol, status) VALUES (?, ?, ?, ?, ?, ?)',
         [`tx-${Date.now()}`, 'purchase', eventId, publicKey, paidSol, confirmationState ?? 'confirmed']
       );
+
+      await dbRun(
+        'UPDATE events SET available_tickets = ? WHERE id = ?',
+        [Math.max(0, Number(event.available_tickets) - 1), event.id]
+      );
+
+      publishRealtimeEvent('ticket_purchased', { eventId: event.id, buyer: publicKey });
+      publishRealtimeEvent('event_updated', { eventId: event.id });
+      publishRealtimeEvent('transaction_created', { eventId: event.id, buyer: publicKey, type: 'purchase' });
 
       return NextResponse.json({
         success: true,
