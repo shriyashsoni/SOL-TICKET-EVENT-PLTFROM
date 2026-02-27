@@ -21,6 +21,7 @@ export interface Event {
   organizer_wallet: string;
   organizer_name?: string;
   event_account?: string;
+  featured?: number | boolean;
   created_at: string;
 }
 
@@ -61,8 +62,7 @@ function resolveDbFilePath(): string {
 
   const isServerlessRuntime =
     process.env.VERCEL === '1'
-    || process.env.AWS_LAMBDA_FUNCTION_NAME
-    || process.env.NEXT_RUNTIME === 'nodejs';
+    || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
   const tmpDir = path.join('/tmp', 'blinkticket-data');
 
@@ -113,6 +113,36 @@ function resolveDbFilePath(): string {
   return ':memory:';
 }
 
+function resolveFallbackJsonPath(dbFilePath: string): string {
+  const explicitFallbackPath = process.env.BLINK_FALLBACK_JSON_PATH?.trim();
+  if (explicitFallbackPath) {
+    try {
+      const dir = path.dirname(explicitFallbackPath);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return explicitFallbackPath;
+    } catch {
+      // continue with safe defaults
+    }
+  }
+
+  const workspaceDataPath = path.join(process.cwd(), 'data', 'blink-fallback.json');
+  try {
+    const workspaceDir = path.dirname(workspaceDataPath);
+    fs.mkdirSync(workspaceDir, { recursive: true });
+    fs.accessSync(workspaceDir, fs.constants.W_OK);
+    return workspaceDataPath;
+  } catch {
+    // continue with runtime-based fallback
+  }
+
+  if (dbFilePath === ':memory:') {
+    return path.join('/tmp', 'blinkticket-data', 'blink-fallback.json');
+  }
+
+  return path.join(path.dirname(dbFilePath), 'blink-fallback.json');
+}
+
 const database: DatabaseShape = {
   events: [],
   users: [],
@@ -122,9 +152,7 @@ const database: DatabaseShape = {
 };
 
 const DB_FILE_PATH = resolveDbFilePath();
-const FALLBACK_JSON_PATH = DB_FILE_PATH === ':memory:'
-  ? path.join('/tmp', 'blinkticket-data', 'blink-fallback.json')
-  : path.join(path.dirname(DB_FILE_PATH), 'blink-fallback.json');
+const FALLBACK_JSON_PATH = resolveFallbackJsonPath(DB_FILE_PATH);
 let sqliteDb: any = null;
 let initPromise: Promise<void> | null = null;
 let usingMemoryFallback = false;
@@ -200,6 +228,7 @@ export function getDbHealth() {
   return {
     mode,
     path: DB_FILE_PATH,
+    fallbackPath: FALLBACK_JSON_PATH,
     initialized: database.initialized,
     connected: Boolean(sqliteDb),
   };
@@ -319,6 +348,7 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       organizer_wallet,
       organizer_name,
       event_account,
+      featured,
       source_url,
       poster_url,
     ] = params;
@@ -340,6 +370,7 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
       organizer_wallet,
       organizer_name,
       event_account,
+      featured: Number(featured ?? 0),
       created_at: new Date().toISOString(),
     });
 
@@ -371,6 +402,21 @@ function memoryDbRun(query: string, params: any[] = []): { lastID: number; chang
     database.events[index] = {
       ...database.events[index],
       available_tickets: Math.max(0, Number(available_tickets) || 0),
+    };
+
+    persistFallbackToDisk();
+
+    return { lastID: index + 1, changes: 1 };
+  }
+
+  if (query.includes('UPDATE events SET featured = ? WHERE id = ?')) {
+    const [featured, id] = params;
+    const index = database.events.findIndex((event) => event.id === id);
+    if (index === -1) return { lastID: 0, changes: 0 };
+
+    database.events[index] = {
+      ...database.events[index],
+      featured: Number(featured) > 0 ? 1 : 0,
     };
 
     persistFallbackToDisk();
@@ -465,6 +511,7 @@ async function initializeDatabase() {
                       organizer_wallet TEXT NOT NULL,
                       organizer_name TEXT,
                       event_account TEXT,
+                      featured INTEGER NOT NULL DEFAULT 0,
                       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )
                   `);
@@ -505,6 +552,12 @@ async function initializeDatabase() {
                   await runSql('CREATE INDEX IF NOT EXISTS idx_tickets_owner_wallet ON tickets(owner_wallet)');
                   await runSql('CREATE INDEX IF NOT EXISTS idx_transactions_user_wallet ON transactions(user_wallet)');
 
+                  try {
+                    await runSql('ALTER TABLE events ADD COLUMN featured INTEGER NOT NULL DEFAULT 0');
+                  } catch {
+                    // Column already exists for existing databases.
+                  }
+
                   database.initialized = true;
                   resolve();
                 } catch {
@@ -542,6 +595,7 @@ async function initializeDatabase() {
                 organizer_wallet TEXT NOT NULL,
                 organizer_name TEXT,
                 event_account TEXT,
+                featured INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
               )
             `);
@@ -581,6 +635,12 @@ async function initializeDatabase() {
             await runSql('CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)');
             await runSql('CREATE INDEX IF NOT EXISTS idx_tickets_owner_wallet ON tickets(owner_wallet)');
             await runSql('CREATE INDEX IF NOT EXISTS idx_transactions_user_wallet ON transactions(user_wallet)');
+
+            try {
+              await runSql('ALTER TABLE events ADD COLUMN featured INTEGER NOT NULL DEFAULT 0');
+            } catch {
+              // Column already exists for existing databases.
+            }
 
             database.initialized = true;
             resolve();
@@ -634,32 +694,55 @@ export async function getStats() {
 
   if (usingMemoryFallback) {
     const totalTicketsSold = database.tickets.length;
-    const activeEvents = database.events.filter((event) => new Date(event.date) > new Date()).length;
-    const activeUsers = new Set(database.tickets.map((ticket) => ticket.owner_wallet)).size;
-    const totalRevenueSol = database.tickets.reduce((sum, ticket) => sum + Number(ticket.price_paid_sol), 0);
+    const activeEvents = database.events.filter((event) => Number(event.available_tickets) > 0).length;
+    const activeUsers = new Set([
+      ...database.tickets.map((ticket) => ticket.owner_wallet),
+      ...database.events.map((event) => event.organizer_wallet),
+      ...database.transactions.map((transaction) => transaction.user_wallet),
+    ]).size;
+    const ticketRevenue = database.tickets.reduce((sum, ticket) => sum + Number(ticket.price_paid_sol), 0);
+    const purchaseRevenue = database.transactions
+      .filter((transaction) => transaction.type === 'purchase')
+      .reduce((sum, transaction) => sum + Number(transaction.amount_sol), 0);
+    const totalRevenueSol = Math.max(ticketRevenue, purchaseRevenue);
+    const platformFees = database.transactions
+      .filter((transaction) => transaction.type === 'event_post')
+      .reduce((sum, transaction) => sum + Number(transaction.amount_sol), 0);
 
     return {
       totalTicketsSold,
       activeEvents,
       activeUsers,
       totalRevenueSol: parseFloat(totalRevenueSol.toFixed(2)),
-      platformFees: 0,
+      platformFees: parseFloat(platformFees.toFixed(4)),
     };
   }
 
   const tickets = await allSql<Ticket>('SELECT * FROM tickets');
   const events = await allSql<Event>('SELECT * FROM events');
+  const transactions = await allSql<Transaction>('SELECT * FROM transactions');
 
   const totalTicketsSold = tickets.length;
-  const activeEvents = events.filter((event) => new Date(event.date) > new Date()).length;
-  const activeUsers = new Set(tickets.map((ticket) => ticket.owner_wallet)).size;
-  const totalRevenueSol = tickets.reduce((sum, ticket) => sum + Number(ticket.price_paid_sol), 0);
+  const activeEvents = events.filter((event) => Number(event.available_tickets) > 0).length;
+  const activeUsers = new Set([
+    ...tickets.map((ticket) => ticket.owner_wallet),
+    ...events.map((event) => event.organizer_wallet),
+    ...transactions.map((transaction) => transaction.user_wallet),
+  ]).size;
+  const ticketRevenue = tickets.reduce((sum, ticket) => sum + Number(ticket.price_paid_sol), 0);
+  const purchaseRevenue = transactions
+    .filter((transaction) => transaction.type === 'purchase')
+    .reduce((sum, transaction) => sum + Number(transaction.amount_sol), 0);
+  const totalRevenueSol = Math.max(ticketRevenue, purchaseRevenue);
+  const platformFees = transactions
+    .filter((transaction) => transaction.type === 'event_post')
+    .reduce((sum, transaction) => sum + Number(transaction.amount_sol), 0);
 
   return {
     totalTicketsSold,
     activeEvents,
     activeUsers,
     totalRevenueSol: parseFloat(totalRevenueSol.toFixed(2)),
-    platformFees: 0,
+    platformFees: parseFloat(platformFees.toFixed(4)),
   };
 }

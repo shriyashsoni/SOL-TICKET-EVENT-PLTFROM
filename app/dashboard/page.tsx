@@ -37,6 +37,7 @@ type PostedEventRecord = {
   total_tickets: number;
   available_tickets: number;
   organizer_wallet: string;
+  featured?: boolean;
   gross_profit_sol?: number;
   withdrawn_profit_sol?: number;
   available_profit_sol?: number;
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [postedEvents, setPostedEvents] = useState<PostedEventRecord[]>([]);
   const [withdrawingEventId, setWithdrawingEventId] = useState<string | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [togglingFeaturedEventId, setTogglingFeaturedEventId] = useState<string | null>(null);
   const [withdrawMessage, setWithdrawMessage] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -198,6 +200,41 @@ export default function DashboardPage() {
       setWithdrawMessage(error instanceof Error ? error.message : 'Delete failed');
     } finally {
       setDeletingEventId(null);
+    }
+  };
+
+  const onToggleFeatured = async (eventId: string, nextFeatured: boolean) => {
+    if (!publicKey) return;
+
+    setTogglingFeaturedEventId(eventId);
+    setWithdrawMessage('');
+
+    try {
+      const response = await fetch('/api/events', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          organizerWallet: publicKey,
+          featured: nextFeatured,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to update featured status');
+      }
+
+      setPostedEvents((prev) => prev.map((event) => (
+        event.id === eventId
+          ? { ...event, featured: nextFeatured }
+          : event
+      )));
+      setWithdrawMessage(nextFeatured ? 'Event marked as featured.' : 'Event removed from featured list.');
+    } catch (error) {
+      setWithdrawMessage(error instanceof Error ? error.message : 'Featured update failed');
+    } finally {
+      setTogglingFeaturedEventId(null);
     }
   };
 
@@ -380,7 +417,12 @@ export default function DashboardPage() {
                       className="bg-card border border-border rounded-lg p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                     >
                       <div>
-                        <p className="text-lg font-semibold text-foreground">{event.name}</p>
+                        <p className="text-lg font-semibold text-foreground">
+                          {event.name}
+                          {event.featured ? (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground align-middle">Featured</span>
+                          ) : null}
+                        </p>
                         <p className="text-sm text-muted-foreground">{event.date}</p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Profit: {Number(event.gross_profit_sol ?? 0).toFixed(4)} SOL ·
@@ -389,6 +431,17 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-sm text-muted-foreground flex items-center gap-3">
                         <span>{sold}/{event.total_tickets} sold · {event.price_sol} SOL</span>
+                        <button
+                          onClick={() => onToggleFeatured(event.id, !Boolean(event.featured))}
+                          disabled={togglingFeaturedEventId === event.id}
+                          className="px-3 py-1.5 rounded-md border border-border hover:border-accent disabled:opacity-50"
+                        >
+                          {togglingFeaturedEventId === event.id
+                            ? 'Saving...'
+                            : event.featured
+                              ? 'Unfeature'
+                              : 'Feature'}
+                        </button>
                         <button
                           onClick={() => onWithdrawProfit(event.id)}
                           disabled={withdrawingEventId === event.id || Number(event.available_profit_sol ?? 0) <= 0}

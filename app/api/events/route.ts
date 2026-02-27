@@ -228,6 +228,7 @@ export async function GET(request: NextRequest) {
       const enriched = event
         ? {
             ...event,
+            featured: Number((event as Event & { featured?: number | boolean }).featured ?? 0) > 0,
             tickets_sold: Math.max(0, Number(event.total_tickets) - Number(event.available_tickets)),
             gross_profit_sol:
               Math.max(0, Number(event.total_tickets) - Number(event.available_tickets)) * Number(event.price_sol),
@@ -269,11 +270,18 @@ export async function GET(request: NextRequest) {
       const withdrawn = Number(event.withdrawn_profit_sol ?? 0);
       return {
         ...event,
+        featured: Number((event as Event & { featured?: number | boolean }).featured ?? 0) > 0,
         tickets_sold: ticketsSold,
         gross_profit_sol: grossProfit,
         withdrawn_profit_sol: withdrawn,
         available_profit_sol: Math.max(0, grossProfit - withdrawn),
       };
+    });
+
+    enriched.sort((a, b) => {
+      const featuredDiff = Number(b.featured ? 1 : 0) - Number(a.featured ? 1 : 0);
+      if (featuredDiff !== 0) return featuredDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
     return NextResponse.json({
@@ -384,7 +392,7 @@ export async function POST(request: NextRequest) {
     const priceUsdc = Math.round(Number(price_sol) * 60);
 
     await dbRun(
-      'INSERT INTO events (id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account, source_url, poster_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO events (id, name, description, location, date, category, price_sol, price_usdc, total_tickets, available_tickets, organizer_wallet, organizer_name, event_account, featured, source_url, poster_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         name,
@@ -399,6 +407,7 @@ export async function POST(request: NextRequest) {
         organizer_wallet || 'guest',
         organizer_name || 'Anonymous',
         event_account || null,
+        0,
         source_url || null,
         poster_url || null,
       ]
@@ -437,6 +446,70 @@ export async function POST(request: NextRequest) {
     console.error('Error creating event:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to create event' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const eventId = String(body.eventId ?? '').trim();
+    const organizerWallet = String(body.organizerWallet ?? '').trim();
+    const featured = Boolean(body.featured);
+
+    if (!eventId || !organizerWallet) {
+      return NextResponse.json(
+        { success: false, error: 'eventId and organizerWallet are required' },
+        { status: 400 }
+      );
+    }
+
+    const event = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [eventId]);
+    if (!event) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+
+    if (event.organizer_wallet !== organizerWallet) {
+      return NextResponse.json(
+        { success: false, error: 'Only organizer can update featured status' },
+        { status: 403 }
+      );
+    }
+
+    const updated = await dbRun('UPDATE events SET featured = ? WHERE id = ?', [featured ? 1 : 0, eventId]);
+    if (updated.changes <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Event update failed' },
+        { status: 500 }
+      );
+    }
+
+    const refreshed = await dbGet<Event>('SELECT * FROM events WHERE id = ?', [eventId]);
+
+    publishRealtimeEvent('event_updated', {
+      eventId,
+      organizerWallet,
+      featured,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: featured ? 'Event marked as featured' : 'Event unfeatured',
+      data: refreshed
+        ? {
+            ...refreshed,
+            featured: Number((refreshed as Event & { featured?: number | boolean }).featured ?? 0) > 0,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('Error updating event:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update event' },
       { status: 500 }
     );
   }
