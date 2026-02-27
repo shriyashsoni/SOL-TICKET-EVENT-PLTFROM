@@ -70,7 +70,9 @@ Core UX goals currently implemented:
 
 - Solana Cluster: Testnet
 - Default Program ID: `E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc`
+- https://explorer.solana.com/address/E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc?cluster=testnet
 - Default Treasury: `5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ`
+- https://solscan.io/account/E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc?cluster=testnet
 
 Program entrypoint:
 - https://github.com/shriyashsoni/SOL-TICKET-EVENT-PLTFROM/blob/main/programs/blink_ticket/src/lib.rs
