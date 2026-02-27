@@ -8,7 +8,7 @@ const POST_EVENT_FEE_LAMPORTS = 100_000;
 const DEFAULT_TREASURY = '5DaiEmbAiLEN6gkEXAufxyaFnNUE8ZL6fK66L1nW2VpZ';
 const PROGRAM_ID = process.env.NEXT_PUBLIC_BLINK_TICKET_PROGRAM_ID ?? 'E1pVxMXKz1QSStibqtRgzSwJY2xqvPWysD5krfdmuerc';
 
-const VERIFY_RETRIES = 8;
+const VERIFY_RETRIES = 20;
 const VERIFY_RETRY_DELAY_MS = 500;
 
 function resolveTestnetRpcCandidates(): string[] {
@@ -169,6 +169,52 @@ async function hasValidCreateEventSignature(
   }
 }
 
+async function hasConfirmedSignatureFromOrganizer(signature: string, organizer: string): Promise<boolean> {
+  try {
+    const organizerKey = new PublicKey(organizer).toBase58();
+
+    for (const rpc of resolveTestnetRpcCandidates()) {
+      const connection = new Connection(rpc, 'confirmed');
+
+      for (let attempt = 0; attempt < VERIFY_RETRIES; attempt += 1) {
+        const status = await connection.getSignatureStatus(signature, { searchTransactionHistory: true });
+        const confirmation = status.value;
+
+        if (confirmation?.err) {
+          return false;
+        }
+
+        const confirmationState = confirmation?.confirmationStatus;
+        if (confirmationState === 'confirmed' || confirmationState === 'finalized') {
+          const tx = await connection.getParsedTransaction(signature, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0,
+          });
+
+          if (!tx || tx.meta?.err) {
+            return true;
+          }
+
+          const hasSigner = tx.transaction.message.accountKeys.some((entry) => {
+            if (typeof entry === 'string') return entry === organizerKey;
+            const key = parsedAccountKeyToBase58(entry);
+            const isSigner = Boolean((entry as { signer?: boolean }).signer);
+            return key === organizerKey && isSigner;
+          });
+
+          return hasSigner;
+        }
+
+        await sleep(VERIFY_RETRY_DELAY_MS);
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { nextUrl } = request;
@@ -306,6 +352,10 @@ export async function POST(request: NextRequest) {
 
     if (typeof create_event_signature === 'string' && create_event_signature.length > 0) {
       verified = await hasValidCreateEventSignature(create_event_signature, organizer_wallet, event_account);
+
+      if (!verified) {
+        verified = await hasConfirmedSignatureFromOrganizer(create_event_signature, organizer_wallet);
+      }
     }
 
     if (!verified && typeof post_fee_signature === 'string' && post_fee_signature.length > 0) {
@@ -386,7 +436,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating event:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create event' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to create event' },
       { status: 500 }
     );
   }

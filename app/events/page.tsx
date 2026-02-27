@@ -69,6 +69,36 @@ export default function EventsPage() {
     return Transaction.from(bytes);
   };
 
+  const waitForTxConfirmation = async (signature: string) => {
+    const maxAttempts = 20;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const statusResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'status',
+          signature,
+        }),
+      });
+
+      const payload = await statusResponse.json();
+      const status = payload?.status as string | undefined;
+
+      if (status === 'confirmed' || status === 'finalized') {
+        return;
+      }
+
+      if (payload?.err) {
+        throw new Error('Create event transaction failed on-chain');
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    }
+
+    throw new Error('Transaction confirmation timed out. Please retry in a few seconds.');
+  };
+
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -148,6 +178,8 @@ export default function EventsPage() {
       ? createResult.signature
       : bs58.encode(createResult.signature);
 
+    await waitForTxConfirmation(createEventSignature);
+
     const organizerName = typeof window !== 'undefined' ? localStorage.getItem('blink_user_name') : null;
     const response = await fetch('/api/events', {
       method: 'POST',
@@ -165,7 +197,8 @@ export default function EventsPage() {
 
     const payload = await response.json();
     if (!response.ok || !payload.success) {
-      throw new Error(payload.error || 'Failed to create event');
+      const hint = payload?.hint?.note ? ` (${payload.hint.note})` : '';
+      throw new Error((payload.error || 'Failed to create event') + hint);
     }
 
     setEvents((prev) => [payload.data, ...prev]);
